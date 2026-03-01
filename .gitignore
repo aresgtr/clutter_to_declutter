@@ -1,0 +1,147 @@
+# ======================== Flutter 通用忽略 ========================
+# Flutter构建产物
+build/
+# Dart工具缓存
+dart_tool/
+# Pub依赖缓存
+.packages
+.pub-cache/
+.pub/
+# Flutter模块临时文件
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-version
+# 编译中间文件
+*.dart.js
+*.js.deps
+*.js.map
+# 分析报告
+analysis_ignore.yaml
+flutter_export_environment.sh
+
+# ======================== 各平台专属忽略 ========================
+# Android 专属
+android/.gradle/
+android/.idea/
+android/local.properties
+android/gradle/
+android/gradlew
+android/gradlew.bat
+android/build/
+android/app/build/
+android/app/release/
+android/app/debug/
+# 安卓签名文件（敏感，绝对不要提交）
+*.jks
+*.keystore
+*.properties
+android/key.properties
+
+# iOS 专属
+ios/Pods/
+ios/.symlinks/
+ios/DerivedData/
+ios/build/
+ios/Runner/build/
+ios/Runner/Assets.xcassets/AppIcon.appiconset/
+# Xcode缓存
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcstatehistory
+# iOS打包产物
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS 专属
+macos/build/
+macos/Flutter/ephemeral/
+macos/*.xcworkspace/xcuserdata/
+macos/*.xcodeproj/xcuserdata/
+# Mac系统文件
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+# macOS应用产物
+*.app
+
+# Windows 专属
+windows/build/
+windows/flutter/ephemeral/
+# Windows系统/开发工具缓存
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.obj
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+bin/
+obj/
+# Windows系统文件
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# Linux 专属
+linux/build/
+linux/flutter/ephemeral/
+# Linux库文件
+*.so
+*.so.*
+*.a
+*.o
+# Linux系统缓存
+*.swp
+*.swo
+/tmp/
+
+# ======================== 开发工具忽略 ========================
+# Android Studio/IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+# VSCode
+.vscode/
+*.code-workspace
+.history/
+# Cursor（代码辅助工具）
+.cursor/
+
+# ======================== 本地数据/敏感文件 ========================
+# 本地CSV数据（避免提交测试/个人数据）
+*.csv
+!docs/example.csv  # 例外：保留示例CSV（如果有）
+# 环境变量/配置
+.env
+.env.local
+.env.*.local
+# 日志文件
+*.log
+# 临时文件
+*.tmp
+*.temp
+# 压缩包
+*.zip
+*.rar
+*.7z
