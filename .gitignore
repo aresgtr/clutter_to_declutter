@@ -18,6 +18,9 @@ dart_tool/
 # 分析报告
 analysis_ignore.yaml
 flutter_export_environment.sh
+# Flutter本地缓存
+.dart_tool/
+.metadata
 
 # ======================== 各平台专属忽略 ========================
 # Android 专属
