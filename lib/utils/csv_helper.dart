@@ -60,32 +60,43 @@ class CsvHelper {
   }
 
   // 读取所有物品（启动app时加载）
+  //
+  // 为了避免第三方CSV解析在不同行尾/编码下的兼容问题，这里改为手动解析：
+  // - 按行拆分
+  // - 跳过表头
+  // - 每一行按逗号切成5列
   static Future<List<Item>> readAllItems() async {
     await initCsvFile();
     final path = await _getCsvFilePath();
     final file = File(path);
-    final csvContent = await file.readAsString();
+    final lines = await file.readAsLines();
 
-    // 解析csv内容
-    final csvTable = const CsvToListConverter().convert(csvContent);
     final items = <Item>[];
 
-    // 跳过表头（第一行）
-    for (int i = 1; i < csvTable.length; i++) {
-      final row = csvTable[i];
-      if (row.length >= 5) {
-        // 确保行数据完整
-        items.add(
-          Item(
-            id: row[0].toString(),
-            emoji: row[1].toString(),
-            name: row[2].toString(),
-            price: row[3].toString(),
-            buyDate: row[4].toString(),
-          ),
-        );
-      }
+    // 没有数据或只有表头
+    if (lines.length <= 1) {
+      return items;
     }
+
+    // 从第二行开始解析
+    for (int i = 1; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty) continue;
+
+      final parts = line.split(',');
+      if (parts.length < 5) continue;
+
+      items.add(
+        Item(
+          id: parts[0],
+          emoji: parts[1],
+          name: parts[2],
+          price: parts[3],
+          buyDate: parts[4],
+        ),
+      );
+    }
+
     return items;
   }
 

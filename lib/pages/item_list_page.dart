@@ -86,20 +86,18 @@ class _ItemListPageState extends State<ItemListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('我的断舍离清单'),
+        title: const Text('我的物品清单'),
         centerTitle: true,
       ),
       // 浮动添加按钮（右下角）
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // 跳转到录入页，返回后刷新列表
-          final result = await Navigator.push(
+          // 跳转到录入页，返回后无论结果如何都刷新列表，避免因返回值异常导致不刷新
+          await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ItemInputPage()),
           );
-          if (result == true) {
-            _loadItems();
-          }
+          _loadItems();
         },
         backgroundColor: Colors.teal,
         child: const Icon(Icons.add),

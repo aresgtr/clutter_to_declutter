@@ -81,7 +81,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
               controller: _priceController,
               decoration: const InputDecoration(
                 labelText: '购买价格（元）',
-                hintText: '比如99、299',
+                hintText: '比如99、299（可选）',
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.numberWithOptions(decimal: true),
@@ -103,7 +103,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
                   }
                 },
                 child: Text(_buyDate == null
-                    ? '选择购买日期'
+                    ? '选择购买日期（可选）'
                     : '购买日期：${_buyDate!.year}-${_buyDate!.month}-${_buyDate!.day}')
             ),
             const SizedBox(height: 24),
@@ -130,22 +130,20 @@ class _ItemInputPageState extends State<ItemInputPage> {
       _showSnackBar('请输入商品名称');
       return;
     }
-    if (price.isEmpty) {
-      _showSnackBar('请输入购买价格');
-      return;
-    }
-    if (_buyDate == null) {
-      _showSnackBar('请选择购买日期');
-      return;
-    }
 
-    // 2. 构建商品对象
+    // 2. 处理可选字段空值
+    final String finalPrice = price.isEmpty ? '0' : price;
+    final String finalBuyDate = _buyDate == null
+        ? '未填写'
+        : '${_buyDate!.year}-${_buyDate!.month}-${_buyDate!.day}';
+
+    // 3. 构建商品对象
     final item = Item(
       id: _uuid.v4(),   // 生成唯一id
       emoji: _selectedEmoji,
       name: name,
-      price: price,
-      buyDate: '${_buyDate!.year}-${_buyDate!.month}-${_buyDate!.day}',
+      price: finalPrice,
+      buyDate: finalBuyDate,
     );
 
     // 3. 写入csv
