@@ -144,6 +144,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
       name: name,
       price: finalPrice,
       buyDate: finalBuyDate,
+      archived: false,
     );
 
     // 3. 写入csv
@@ -151,6 +152,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
       await CsvHelper.addItem(item);
       _showSnackBar('物品添加成功！');
       // 4. 关闭录入页，返回列表页
+      if (!mounted) return;
       Navigator.pop(context, true); // 传true通知列表页刷新
     } catch (e) {
       _showSnackBar('添加失败：$e');
