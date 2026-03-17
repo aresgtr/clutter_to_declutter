@@ -180,6 +180,24 @@ class CsvHelper {
     await _writeAllItems(filteredItems);
   }
 
+  // 更新物品信息（保持 archived 状态）
+  static Future<void> updateItem(Item updatedItem) async {
+    final allItem = await readAllItems();
+    bool replaced = false;
+
+    final updated = allItem.map((item) {
+      if (item.id != updatedItem.id) return item;
+      replaced = true;
+      return updatedItem;
+    }).toList();
+
+    if (!replaced) {
+      updated.add(updatedItem);
+    }
+
+    await _writeAllItems(updated);
+  }
+
   // 辅助：转义逗号（避免商品名含逗号导致csv格式错误）
   static String _escapeComma(String text) {
     return text.replaceAll(',', '，'); // 替换为中文逗号

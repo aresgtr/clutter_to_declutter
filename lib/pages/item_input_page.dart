@@ -13,25 +13,62 @@ const List<String> commonEmojis = [
 ];
 
 class ItemInputPage extends StatefulWidget {
-  const ItemInputPage({super.key});
+  final Item? item;
+
+  const ItemInputPage({super.key, this.item});
 
   @override
   State<ItemInputPage> createState() => _ItemInputPageState();
 }
 
 class _ItemInputPageState extends State<ItemInputPage> {
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _priceController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _priceController;
   DateTime? _buyDate;
-  String _selectedEmoji = '📦'; // 默认emoji
+  late String _selectedEmoji;
 
   // 生成唯一id
   final _uuid = const Uuid();
 
+  bool get _isEditMode => widget.item != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final existing = widget.item;
+    _selectedEmoji = existing?.emoji ?? '📦';
+    _nameController = TextEditingController(text: existing?.name ?? '');
+
+    final priceText = (existing?.price ?? '').trim();
+    _priceController = TextEditingController(text: (priceText == '0') ? '' : priceText);
+
+    _buyDate = _tryParseBuyDate(existing?.buyDate);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  DateTime? _tryParseBuyDate(String? raw) {
+    final text = (raw ?? '').trim();
+    if (text.isEmpty || text == '未填写') return null;
+    final parts = text.split('-');
+    if (parts.length != 3) return null;
+    final y = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    final d = int.tryParse(parts[2]);
+    if (y == null || m == null || d == null) return null;
+    return DateTime(y, m, d);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('添加商品')),
+      appBar: AppBar(title: Text(_isEditMode ? '编辑商品' : '添加商品')),
       body: SingleChildScrollView(  // 避免键盘遮挡
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -92,7 +129,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
                 onPressed: () async {
                   final pickedDate = await showDatePicker(
                       context: context,
-                      initialDate: DateTime.now(),
+                      initialDate: _buyDate ?? DateTime.now(),
                       firstDate: DateTime(2000),
                       lastDate: DateTime.now(),
                   );
@@ -112,7 +149,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
               width: double.infinity,
               child: ElevatedButton(
                   onPressed: _saveItem,
-                  child: const Text('保存物品'),
+                  child: Text(_isEditMode ? '保存修改' : '保存物品'),
               ),
             )
           ],
@@ -139,23 +176,29 @@ class _ItemInputPageState extends State<ItemInputPage> {
 
     // 3. 构建商品对象
     final item = Item(
-      id: _uuid.v4(),   // 生成唯一id
+      id: widget.item?.id ?? _uuid.v4(), // 编辑保留id，新增生成id
       emoji: _selectedEmoji,
       name: name,
       price: finalPrice,
       buyDate: finalBuyDate,
-      archived: false,
+      archived: widget.item?.archived ?? false,
     );
 
     // 3. 写入csv
     try {
-      await CsvHelper.addItem(item);
-      _showSnackBar('物品添加成功！');
-      // 4. 关闭录入页，返回列表页
+      if (_isEditMode) {
+        await CsvHelper.updateItem(item);
+        _showSnackBar('修改已保存！');
+      } else {
+        await CsvHelper.addItem(item);
+        _showSnackBar('物品添加成功！');
+      }
+
+      // 4. 关闭页面，返回列表页
       if (!mounted) return;
       Navigator.pop(context, true); // 传true通知列表页刷新
     } catch (e) {
-      _showSnackBar('添加失败：$e');
+      _showSnackBar('${_isEditMode ? '保存' : '添加'}失败：$e');
     }
   }
 

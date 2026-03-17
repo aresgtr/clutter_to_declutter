@@ -193,6 +193,15 @@ class _ItemListPageState extends State<ItemListPage> {
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     elevation: 2,
                     child: ListTile(
+                      onTap: () async {
+                        final changed = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => ItemInputPage(item: item)),
+                        );
+                        if (changed == true) {
+                          _loadItems();
+                        }
+                      },
                       leading: Text(item.emoji, style: const TextStyle(fontSize: 32)),
                       title: Text(
                         item.name,
