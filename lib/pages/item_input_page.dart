@@ -26,6 +26,8 @@ class _ItemInputPageState extends State<ItemInputPage> {
   late final TextEditingController _priceController;
   DateTime? _buyDate;
   late String _selectedEmoji;
+  late String _costMode; // day / count
+  late int _useCount;
 
   // 生成唯一id
   final _uuid = const Uuid();
@@ -44,6 +46,8 @@ class _ItemInputPageState extends State<ItemInputPage> {
     _priceController = TextEditingController(text: (priceText == '0') ? '' : priceText);
 
     _buyDate = _tryParseBuyDate(existing?.buyDate);
+    _costMode = (existing?.costMode == 'count') ? 'count' : 'day';
+    _useCount = existing?.useCount ?? 0;
   }
 
   @override
@@ -103,6 +107,59 @@ class _ItemInputPageState extends State<ItemInputPage> {
               ),
             ),
             const SizedBox(height: 16),
+            // 2. 成本计算方式
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('成本计算方式', style: TextStyle(fontSize: 16)),
+                ),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'day', label: Text('按日期')),
+                    ButtonSegment(value: 'count', label: Text('按次数')),
+                  ],
+                  selected: {_costMode},
+                  onSelectionChanged: (value) {
+                    setState(() {
+                      _costMode = value.first;
+                      if (_costMode == 'count' && _useCount < 0) {
+                        _useCount = 0;
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+            if (_costMode == 'count') ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('使用次数', style: TextStyle(fontSize: 16)),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _useCount = (_useCount - 1).clamp(0, 1 << 30);
+                          });
+                        },
+                        icon: const Icon(Icons.remove_circle_outline),
+                      ),
+                      Text('$_useCount', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _useCount = _useCount + 1;
+                          });
+                        },
+                        icon: const Icon(Icons.add_circle_outline),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
             // 2. 商品名称输入框
             TextField(
               controller: _nameController,
@@ -182,6 +239,8 @@ class _ItemInputPageState extends State<ItemInputPage> {
       price: finalPrice,
       buyDate: finalBuyDate,
       archived: widget.item?.archived ?? false,
+      costMode: _costMode,
+      useCount: _costMode == 'count' ? _useCount : 0,
     );
 
     // 3. 写入csv

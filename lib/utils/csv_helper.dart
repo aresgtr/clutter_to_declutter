@@ -9,6 +9,10 @@ class Item {
   final String price;
   final String buyDate;
   final bool archived;
+  // 成本模式：day=按天（默认），count=按次数
+  final String costMode;
+  // 使用次数（仅costMode=count时有意义）
+  final int useCount;
 
   Item({
     required this.id,
@@ -17,6 +21,8 @@ class Item {
     required this.price,
     required this.buyDate,
     this.archived = false,
+    this.costMode = 'day',
+    this.useCount = 0,
   });
 
   // 写入csv
@@ -28,6 +34,8 @@ class Item {
       'price': price,
       'buyDate': buyDate,
       'archived': archived ? '1' : '0',
+      'costMode': costMode,
+      'useCount': useCount.toString(),
     };
   }
 
@@ -40,13 +48,15 @@ class Item {
       price: map['price'] ?? '',
       buyDate: map['buyDate'] ?? '',
       archived: map['archived'] == '1' || map['archived'] == 1 || map['archived'] == true,
+      costMode: (map['costMode'] ?? 'day').toString(),
+      useCount: int.tryParse((map['useCount'] ?? '0').toString()) ?? 0,
     );
   }
 }
 
 // csv工具类（负责读写物品数据）
 class CsvHelper {
-  static const _header = 'id,emoji,name,price,buyDate,archived\n';
+  static const _header = 'id,emoji,name,price,buyDate,archived,costMode,useCount\n';
 
   // 获取csv文件路径（安卓本地存储）
   static Future<String> _getCsvFilePath() async {
@@ -64,7 +74,7 @@ class CsvHelper {
       return;
     }
 
-    // 兼容迁移：旧版本没有 archived 列，则自动补齐
+    // 兼容迁移：旧版本缺列则自动补齐
     final lines = await file.readAsLines();
     if (lines.isEmpty) {
       await file.writeAsString(_header);
@@ -72,15 +82,29 @@ class CsvHelper {
     }
 
     final firstLine = lines.first.trim();
-    if (!firstLine.contains('archived')) {
+    if (!firstLine.contains('archived') || !firstLine.contains('costMode') || !firstLine.contains('useCount')) {
       final migrated = <String>[];
       migrated.add(_header.trimRight());
 
       for (int i = 1; i < lines.length; i++) {
         final line = lines[i].trim();
         if (line.isEmpty) continue;
-        // 旧格式：id,emoji,name,price,buyDate
-        migrated.add('$line,0');
+        final parts = line.split(',');
+
+        // 旧格式1：id,emoji,name,price,buyDate
+        if (parts.length == 5) {
+          migrated.add('$line,0,day,0');
+          continue;
+        }
+
+        // 旧格式2：id,emoji,name,price,buyDate,archived
+        if (parts.length == 6) {
+          migrated.add('$line,day,0');
+          continue;
+        }
+
+        // 已经是新格式（或更长），尽量保留原行
+        migrated.add(line);
       }
 
       await file.writeAsString('${migrated.join('\n')}\n');
@@ -93,7 +117,7 @@ class CsvHelper {
     final buffer = StringBuffer()..write(_header);
     for (final item in items) {
       buffer.writeln(
-        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'}',
+        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount}',
       );
     }
     await file.writeAsString(buffer.toString());
@@ -104,7 +128,7 @@ class CsvHelper {
   // 为了避免第三方CSV解析在不同行尾/编码下的兼容问题，这里改为手动解析：
   // - 按行拆分
   // - 跳过表头
-  // - 每一行按逗号切成6列（最后一列 archived：0/1）
+  // - 每一行按逗号切成8列（archived,costMode,useCount）
   static Future<List<Item>> readAllItems() async {
     await initCsvFile();
     final path = await _getCsvFilePath();
@@ -134,6 +158,8 @@ class CsvHelper {
           price: parts[3],
           buyDate: parts[4],
           archived: parts.length >= 6 ? (parts[5] == '1') : false,
+          costMode: parts.length >= 7 ? parts[6] : 'day',
+          useCount: parts.length >= 8 ? (int.tryParse(parts[7]) ?? 0) : 0,
         ),
       );
     }
@@ -149,7 +175,7 @@ class CsvHelper {
 
     // 拼接csv行（注意转义逗号，避免格式错误）
     final csvRow =
-        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'}\n';
+        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount}\n';
     await file.writeAsString(csvRow, mode: FileMode.append);
   }
 
@@ -166,6 +192,8 @@ class CsvHelper {
                   price: item.price,
                   buyDate: item.buyDate,
                   archived: archived,
+                  costMode: item.costMode,
+                  useCount: item.useCount,
                 )
               : item,
         )

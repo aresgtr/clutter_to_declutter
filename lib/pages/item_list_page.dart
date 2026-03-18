@@ -45,6 +45,7 @@ class _ItemListPageState extends State<ItemListPage> {
     final price = _tryParsePrice(item.price);
     final buyDate = _tryParseBuyDate(item.buyDate);
     if (price == null || buyDate == null) return null;
+    if (item.costMode == 'count') return null;
 
     final now = DateTime.now();
     final days = now.difference(buyDate).inDays;
@@ -52,6 +53,35 @@ class _ItemListPageState extends State<ItemListPage> {
     final perDay = price / divisor;
 
     return '日均：¥${perDay.toStringAsFixed(2)}/天';
+  }
+
+  String? _perUseCostText(Item item) {
+    if (item.costMode != 'count') return null;
+    final price = _tryParsePrice(item.price);
+    if (price == null) return null;
+    final divisor = item.useCount <= 0 ? 1 : item.useCount;
+    final perUse = price / divisor;
+    return '单次：¥${perUse.toStringAsFixed(2)}/次';
+  }
+
+  Future<void> _setUseCount(Item item, int useCount) async {
+    final next = Item(
+      id: item.id,
+      emoji: item.emoji,
+      name: item.name,
+      price: item.price,
+      buyDate: item.buyDate,
+      archived: item.archived,
+      costMode: item.costMode,
+      useCount: useCount < 0 ? 0 : useCount,
+    );
+
+    try {
+      await CsvHelper.updateItem(next);
+      _loadItems();
+    } catch (e) {
+      _showSnackBar('更新次数失败：$e');
+    }
   }
 
   @override
@@ -211,9 +241,31 @@ class _ItemListPageState extends State<ItemListPage> {
                         [
                           '¥${item.price} | 购买日期：${item.buyDate}',
                           if (_dailyCostText(item) != null) _dailyCostText(item)!,
+                          if (_perUseCostText(item) != null) _perUseCostText(item)!,
                         ].join('  ·  '),
                         style: TextStyle(color: Colors.grey[600]),
                       ),
+                      trailing: item.costMode == 'count'
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  tooltip: '减少次数',
+                                  onPressed: () => _setUseCount(item, item.useCount - 1),
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                ),
+                                Text(
+                                  '${item.useCount}',
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                IconButton(
+                                  tooltip: '增加次数',
+                                  onPressed: () => _setUseCount(item, item.useCount + 1),
+                                  icon: const Icon(Icons.add_circle_outline),
+                                ),
+                              ],
+                            )
+                          : null,
                     ),
                   ),
                 );
