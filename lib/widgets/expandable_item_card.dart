@@ -42,8 +42,9 @@ class ExpandableItemCard extends StatelessWidget {
         AnimatedCrossFade(
           firstChild: const SizedBox.shrink(),
           secondChild: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            padding: const EdgeInsets.only(bottom: 8),
             child: Card(
+              margin: const EdgeInsets.symmetric(vertical: 0),
               elevation: 1,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

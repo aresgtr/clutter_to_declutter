@@ -16,6 +16,19 @@ class _ItemListPageState extends State<ItemListPage> {
   bool _isLoading = true;
   String? _expandedItemId;
 
+  static const Color _accent = Color(0xFF2F3A34); // 深墨绿：断舍离高级感
+
+  double _totalValue() {
+    double sum = 0;
+    for (final item in _items) {
+      final price = _tryParsePrice(item.price);
+      if (price != null) {
+        sum += price;
+      }
+    }
+    return sum;
+  }
+
   DateTime? _tryParseBuyDate(String raw) {
     final text = raw.trim();
     if (text.isEmpty || text == '未填写') return null;
@@ -141,7 +154,6 @@ class _ItemListPageState extends State<ItemListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('我的物品清单'),
         centerTitle: true,
         actions: [
           IconButton(
@@ -167,8 +179,14 @@ class _ItemListPageState extends State<ItemListPage> {
           );
           _loadItems();
         },
-        backgroundColor: Colors.teal,
-        child: const Icon(Icons.add),
+        backgroundColor: const Color(0xFFF5F3EE),
+        foregroundColor: _accent,
+        elevation: 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: _accent.withValues(alpha: 0.22)),
+        ),
+        child: const Icon(Icons.add, size: 28),
       ),
       body: _buildBody(),
     );
@@ -185,11 +203,9 @@ class _ItemListPageState extends State<ItemListPage> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Center(
-            child: Text(
-              '你一共拥有 ${_items.length} 件物品',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
+          child: _StatsCard(
+            itemCount: _items.length,
+            totalValue: _totalValue(),
           ),
         ),
         if (_items.isEmpty)
@@ -208,7 +224,7 @@ class _ItemListPageState extends State<ItemListPage> {
         else
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               itemCount: _items.length,
               itemBuilder: (context, index) {
                 final item = _items[index];
@@ -226,6 +242,12 @@ class _ItemListPageState extends State<ItemListPage> {
                   actionBar: Row(
                     children: [
                       FilledButton.tonalIcon(
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
                         onPressed: () async {
                           final changed = await Navigator.push(
                             context,
@@ -235,32 +257,45 @@ class _ItemListPageState extends State<ItemListPage> {
                             _loadItems();
                           }
                         },
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
                         label: const Text('编辑'),
                       ),
                       const SizedBox(width: 8),
                       FilledButton.tonalIcon(
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
                         onPressed: () async {
                           await _archiveItem(item.id);
                         },
-                        icon: const Icon(Icons.archive_outlined),
+                        icon: const Icon(Icons.archive_outlined, size: 18),
                         label: const Text('归档'),
                       ),
                       if (item.costMode == 'count') ...[
                         const Spacer(),
                         IconButton(
                           tooltip: '减少次数',
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
                           onPressed: () => _setUseCount(item, item.useCount - 1),
-                          icon: const Icon(Icons.remove_circle_outline),
+                          icon: const Icon(Icons.remove_circle_outline, size: 22),
                         ),
-                        Text(
-                          '${item.useCount}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '${item.useCount}',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ),
                         IconButton(
                           tooltip: '增加次数',
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
                           onPressed: () => _setUseCount(item, item.useCount + 1),
-                          icon: const Icon(Icons.add_circle_outline),
+                          icon: const Icon(Icons.add_circle_outline, size: 22),
                         ),
                       ],
                     ],
@@ -269,6 +304,133 @@ class _ItemListPageState extends State<ItemListPage> {
               },
             ),
           ),
+      ],
+    );
+  }
+}
+
+class _StatsCard extends StatelessWidget {
+  final int itemCount;
+  final double totalValue;
+
+  const _StatsCard({
+    required this.itemCount,
+    required this.totalValue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = _ItemListPageState._accent;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFFF5F3EE), // 米白
+        border: Border.all(color: const Color(0xFFE6E1D8)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _Metric(
+            icon: Icons.inventory_2_outlined,
+            label: '物品总数',
+            value: '$itemCount',
+            accent: accent,
+          ),
+          const SizedBox(width: 16),
+          Container(
+            width: 1,
+            height: 42,
+            color: const Color(0xFFD8D2C7),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _Metric(
+              icon: Icons.payments_outlined,
+              label: '总价值',
+              value: '¥${totalValue.toStringAsFixed(2)}',
+              valueAlignEnd: true,
+              accent: accent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Metric extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool valueAlignEnd;
+  final Color accent;
+
+  const _Metric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.valueAlignEnd = false,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: accent.withValues(alpha: 0.16)),
+          ),
+          child: Icon(icon, color: accent.withValues(alpha: 0.95), size: 18),
+        ),
+        const SizedBox(width: 10),
+        Flexible(
+          fit: FlexFit.loose,
+          child: Column(
+            crossAxisAlignment: valueAlignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF6B665D),
+                  fontSize: 12,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: valueAlignEnd ? Alignment.centerRight : Alignment.centerLeft,
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    color: Color(0xFF1F1F1B),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
