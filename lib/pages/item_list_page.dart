@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/csv_helper.dart';
 import 'item_input_page.dart';
 import 'archived_list_page.dart';
+import '../widgets/expandable_item_card.dart';
 
 class ItemListPage extends StatefulWidget {
   const ItemListPage({super.key});
@@ -13,6 +14,7 @@ class ItemListPage extends StatefulWidget {
 class _ItemListPageState extends State<ItemListPage> {
   List<Item> _items = [];
   bool _isLoading = true;
+  String? _expandedItemId;
 
   DateTime? _tryParseBuyDate(String raw) {
     final text = raw.trim();
@@ -122,6 +124,12 @@ class _ItemListPageState extends State<ItemListPage> {
     }
   }
 
+  void _toggleExpanded(String itemId) {
+    setState(() {
+      _expandedItemId = (_expandedItemId == itemId) ? null : itemId;
+    });
+  }
+
   // 显示提示
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -204,69 +212,58 @@ class _ItemListPageState extends State<ItemListPage> {
               itemCount: _items.length,
               itemBuilder: (context, index) {
                 final item = _items[index];
-                // 左滑归档（软删除）
-                return Dismissible(
-                  key: Key(item.id), // 唯一key
-                  direction: DismissDirection.endToStart, // 从右向左滑
-                  background: Container(
-                    color: Colors.blueGrey,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: const Icon(Icons.archive, color: Colors.white),
-                  ),
-                  confirmDismiss: (direction) async {
-                    // 清单页的“删除” = 归档，不需要确认
-                    await _archiveItem(item.id);
-                    return true;
-                  },
-                  child: Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    elevation: 2,
-                    child: ListTile(
-                      onTap: () async {
-                        final changed = await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => ItemInputPage(item: item)),
-                        );
-                        if (changed == true) {
-                          _loadItems();
-                        }
-                      },
-                      leading: Text(item.emoji, style: const TextStyle(fontSize: 32)),
-                      title: Text(
-                        item.name,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                final isExpanded = _expandedItemId == item.id;
+                return ExpandableItemCard(
+                  isExpanded: isExpanded,
+                  onToggle: () => _toggleExpanded(item.id),
+                  leading: Text(item.emoji, style: const TextStyle(fontSize: 32)),
+                  title: item.name,
+                  subtitle: [
+                    '¥${item.price} | 购买日期：${item.buyDate}',
+                    if (_dailyCostText(item) != null) _dailyCostText(item)!,
+                    if (_perUseCostText(item) != null) _perUseCostText(item)!,
+                  ].join('  ·  '),
+                  actionBar: Row(
+                    children: [
+                      FilledButton.tonalIcon(
+                        onPressed: () async {
+                          final changed = await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => ItemInputPage(item: item)),
+                          );
+                          if (changed == true) {
+                            _loadItems();
+                          }
+                        },
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('编辑'),
                       ),
-                      subtitle: Text(
-                        [
-                          '¥${item.price} | 购买日期：${item.buyDate}',
-                          if (_dailyCostText(item) != null) _dailyCostText(item)!,
-                          if (_perUseCostText(item) != null) _perUseCostText(item)!,
-                        ].join('  ·  '),
-                        style: TextStyle(color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      FilledButton.tonalIcon(
+                        onPressed: () async {
+                          await _archiveItem(item.id);
+                        },
+                        icon: const Icon(Icons.archive_outlined),
+                        label: const Text('归档'),
                       ),
-                      trailing: item.costMode == 'count'
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  tooltip: '减少次数',
-                                  onPressed: () => _setUseCount(item, item.useCount - 1),
-                                  icon: const Icon(Icons.remove_circle_outline),
-                                ),
-                                Text(
-                                  '${item.useCount}',
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                                IconButton(
-                                  tooltip: '增加次数',
-                                  onPressed: () => _setUseCount(item, item.useCount + 1),
-                                  icon: const Icon(Icons.add_circle_outline),
-                                ),
-                              ],
-                            )
-                          : null,
-                    ),
+                      if (item.costMode == 'count') ...[
+                        const Spacer(),
+                        IconButton(
+                          tooltip: '减少次数',
+                          onPressed: () => _setUseCount(item, item.useCount - 1),
+                          icon: const Icon(Icons.remove_circle_outline),
+                        ),
+                        Text(
+                          '${item.useCount}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        IconButton(
+                          tooltip: '增加次数',
+                          onPressed: () => _setUseCount(item, item.useCount + 1),
+                          icon: const Icon(Icons.add_circle_outline),
+                        ),
+                      ],
+                    ],
                   ),
                 );
               },

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/csv_helper.dart';
+import '../widgets/expandable_item_card.dart';
 
 class ArchivedListPage extends StatefulWidget {
   const ArchivedListPage({super.key});
@@ -12,6 +13,7 @@ class ArchivedListPage extends StatefulWidget {
 class _ArchivedListPageState extends State<ArchivedListPage> {
   List<Item> _items = [];
   bool _isLoading = true;
+  String? _expandedItemId;
 
   @override
   void initState() {
@@ -35,6 +37,12 @@ class _ArchivedListPageState extends State<ArchivedListPage> {
       });
       _showSnackBar('加载失败：$e');
     }
+  }
+
+  void _toggleExpanded(String itemId) {
+    setState(() {
+      _expandedItemId = (_expandedItemId == itemId) ? null : itemId;
+    });
   }
 
   Future<void> _deletePermanently(String itemId) async {
@@ -117,48 +125,35 @@ class _ArchivedListPageState extends State<ArchivedListPage> {
       itemCount: _items.length,
       itemBuilder: (context, index) {
         final item = _items[index];
+        final isExpanded = _expandedItemId == item.id;
 
-        return Dismissible(
-          key: Key('archived-${item.id}'),
-          direction: DismissDirection.horizontal,
-          background: Container(
-            color: Colors.teal,
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: const Icon(Icons.unarchive, color: Colors.white),
-          ),
-          secondaryBackground: Container(
-            color: Colors.red,
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: const Icon(Icons.delete_forever, color: Colors.white),
-          ),
-          confirmDismiss: (direction) async {
-            if (direction == DismissDirection.startToEnd) {
-              await _unarchive(item.id);
-              return false;
-            }
-
-            final ok = await _confirmPermanentDelete();
-            if (ok) {
-              await _deletePermanently(item.id);
-            }
-            return ok;
-          },
-          child: Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            elevation: 2,
-            child: ListTile(
-              leading: Text(item.emoji, style: const TextStyle(fontSize: 32)),
-              title: Text(
-                item.name,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        return ExpandableItemCard(
+          isExpanded: isExpanded,
+          onToggle: () => _toggleExpanded(item.id),
+          leading: Text(item.emoji, style: const TextStyle(fontSize: 32)),
+          title: item.name,
+          subtitle: '¥${item.price} | 购买日期：${item.buyDate}',
+          actionBar: Row(
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: () async {
+                  await _unarchive(item.id);
+                },
+                icon: const Icon(Icons.unarchive_outlined),
+                label: const Text('恢复'),
               ),
-              subtitle: Text(
-                '¥${item.price} | 购买日期：${item.buyDate}',
-                style: TextStyle(color: Colors.grey[600]),
+              const SizedBox(width: 8),
+              FilledButton.tonalIcon(
+                onPressed: () async {
+                  final ok = await _confirmPermanentDelete();
+                  if (ok) {
+                    await _deletePermanently(item.id);
+                  }
+                },
+                icon: const Icon(Icons.delete_forever_outlined),
+                label: const Text('永久删除'),
               ),
-            ),
+            ],
           ),
         );
       },
