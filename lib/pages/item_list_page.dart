@@ -79,6 +79,23 @@ class _ItemListPageState extends State<ItemListPage> {
     return '单次：¥${perUse.toStringAsFixed(2)}/次';
   }
 
+  String _priceText(Item item) {
+    final price = _tryParsePrice(item.price);
+    if (price == null) return '';
+    // 保留两位小数，避免统计卡片/列表不一致
+    return '¥${price.toStringAsFixed(2)}';
+  }
+
+  String _dateText(Item item) {
+    final date = _tryParseBuyDate(item.buyDate);
+    if (date == null) return '';
+    return '${date.year}-${date.month}-${date.day}';
+  }
+
+  String _costLineText(Item item) {
+    return _dailyCostText(item) ?? _perUseCostText(item) ?? '';
+  }
+
   Future<void> _setUseCount(Item item, int useCount) async {
     final next = Item(
       id: item.id,
@@ -232,13 +249,50 @@ class _ItemListPageState extends State<ItemListPage> {
                 return ExpandableItemCard(
                   isExpanded: isExpanded,
                   onToggle: () => _toggleExpanded(item.id),
-                  leading: Text(item.emoji, style: const TextStyle(fontSize: 32)),
-                  title: item.name,
-                  subtitle: [
-                    '¥${item.price} | 购买日期：${item.buyDate}',
-                    if (_dailyCostText(item) != null) _dailyCostText(item)!,
-                    if (_perUseCostText(item) != null) _perUseCostText(item)!,
-                  ].join('  ·  '),
+                  leading: Text(item.emoji, style: const TextStyle(fontSize: 24)),
+                  title: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            item.name,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (_priceText(item).isNotEmpty)
+                        Text(
+                          _priceText(item),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B665D),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _costLineText(item),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Color(0xFF6B665D)),
+                        ),
+                      ),
+                      if (_dateText(item).isNotEmpty)
+                        Text(
+                          _dateText(item),
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF9E9A92)),
+                        ),
+                    ],
+                  ),
                   actionBar: Row(
                     children: [
                       FilledButton.tonalIcon(

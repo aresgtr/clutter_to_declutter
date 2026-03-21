@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 class ExpandableItemCard extends StatelessWidget {
   final Widget leading;
-  final String title;
-  final String subtitle;
+  final Widget title;
+  final Widget subtitle;
   final bool isExpanded;
   final VoidCallback onToggle;
   final Widget? actionBar;
@@ -28,14 +28,8 @@ class ExpandableItemCard extends StatelessWidget {
           child: ListTile(
             onTap: onToggle,
             leading: leading,
-            title: Text(
-              title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-            ),
-            subtitle: Text(
-              subtitle,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
+            title: title,
+            subtitle: subtitle,
             trailing: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
           ),
         ),

@@ -131,8 +131,21 @@ class _ArchivedListPageState extends State<ArchivedListPage> {
           isExpanded: isExpanded,
           onToggle: () => _toggleExpanded(item.id),
           leading: Text(item.emoji, style: const TextStyle(fontSize: 32)),
-          title: item.name,
-          subtitle: '¥${item.price} | 购买日期：${item.buyDate}',
+          title: Row(
+            children: [
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    item.name,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          subtitle: const SizedBox.shrink(),
           actionBar: Row(
             children: [
               FilledButton.tonalIcon(
