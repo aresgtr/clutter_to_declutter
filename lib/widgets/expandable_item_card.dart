@@ -30,7 +30,7 @@ class ExpandableItemCard extends StatelessWidget {
             leading: leading,
             title: title,
             subtitle: subtitle,
-            trailing: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+            // 移除 trailing 箭头，点击卡片任意位置即可展开/折叠
           ),
         ),
         AnimatedCrossFade(
@@ -53,4 +53,3 @@ class ExpandableItemCard extends StatelessWidget {
     );
   }
 }
-
