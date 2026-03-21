@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/csv_helper.dart';
 import '../widgets/expandable_item_card.dart';
+import '../widgets/settings_drawer.dart';  // 新增导入
 
 class ArchivedListPage extends StatefulWidget {
   const ArchivedListPage({super.key});
@@ -67,22 +68,22 @@ class _ArchivedListPageState extends State<ArchivedListPage> {
 
   Future<bool> _confirmPermanentDelete() async {
     return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('确认永久删除'),
-            content: const Text('永久删除后无法恢复，是否继续？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('永久删除', style: TextStyle(color: Colors.red)),
-              ),
-            ],
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认永久删除'),
+        content: const Text('永久删除后无法恢复，是否继续？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
           ),
-        ) ??
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('永久删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    ) ??
         false;
   }
 
@@ -98,7 +99,14 @@ class _ArchivedListPageState extends State<ArchivedListPage> {
       appBar: AppBar(
         title: const Text('归档箱'),
         centerTitle: true,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
       ),
+      drawer: const SettingsDrawer(),  // 新增抽屉
       body: _buildBody(),
     );
   }
@@ -130,7 +138,7 @@ class _ArchivedListPageState extends State<ArchivedListPage> {
         return ExpandableItemCard(
           isExpanded: isExpanded,
           onToggle: () => _toggleExpanded(item.id),
-          leading: Text(item.emoji, style: const TextStyle(fontSize: 32)),
+          leading: Text(item.emoji, style: const TextStyle(fontSize: 24)),
           title: Row(
             children: [
               Expanded(
@@ -173,4 +181,3 @@ class _ArchivedListPageState extends State<ArchivedListPage> {
     );
   }
 }
-

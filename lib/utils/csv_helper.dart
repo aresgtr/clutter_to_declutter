@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';  // 新增导入
 
 class Item {
   final String id;
@@ -9,9 +10,7 @@ class Item {
   final String price;
   final String buyDate;
   final bool archived;
-  // 成本模式：day=按天（默认），count=按次数
   final String costMode;
-  // 使用次数（仅costMode=count时有意义）
   final int useCount;
 
   Item({
@@ -25,7 +24,6 @@ class Item {
     this.useCount = 0,
   });
 
-  // 写入csv
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -39,11 +37,10 @@ class Item {
     };
   }
 
-  // 读取csv
   static Item fromMap(Map<String, dynamic> map) {
     return Item(
       id: map['id'] ?? '',
-      emoji: map['emoji'] ?? '📦', // 默认emoji
+      emoji: map['emoji'] ?? '📦',
       name: map['name'] ?? '',
       price: map['price'] ?? '',
       buyDate: map['buyDate'] ?? '',
@@ -54,27 +51,22 @@ class Item {
   }
 }
 
-// csv工具类（负责读写物品数据）
 class CsvHelper {
   static const _header = 'id,emoji,name,price,buyDate,archived,costMode,useCount\n';
 
-  // 获取csv文件路径（安卓本地存储）
   static Future<String> _getCsvFilePath() async {
     final directory = await getApplicationDocumentsDirectory();
     return '${directory.path}/items.csv';
   }
 
-  // 初始化csv
   static Future<void> initCsvFile() async {
     final path = await _getCsvFilePath();
     final file = File(path);
     if (!await file.exists()) {
-      // csv表头
       await file.writeAsString(_header);
       return;
     }
 
-    // 兼容迁移：旧版本缺列则自动补齐
     final lines = await file.readAsLines();
     if (lines.isEmpty) {
       await file.writeAsString(_header);
@@ -91,19 +83,16 @@ class CsvHelper {
         if (line.isEmpty) continue;
         final parts = line.split(',');
 
-        // 旧格式1：id,emoji,name,price,buyDate
         if (parts.length == 5) {
           migrated.add('$line,0,day,0');
           continue;
         }
 
-        // 旧格式2：id,emoji,name,price,buyDate,archived
         if (parts.length == 6) {
           migrated.add('$line,day,0');
           continue;
         }
 
-        // 已经是新格式（或更长），尽量保留原行
         migrated.add(line);
       }
 
@@ -123,12 +112,6 @@ class CsvHelper {
     await file.writeAsString(buffer.toString());
   }
 
-  // 读取所有物品（启动app时加载）
-  //
-  // 为了避免第三方CSV解析在不同行尾/编码下的兼容问题，这里改为手动解析：
-  // - 按行拆分
-  // - 跳过表头
-  // - 每一行按逗号切成8列（archived,costMode,useCount）
   static Future<List<Item>> readAllItems() async {
     await initCsvFile();
     final path = await _getCsvFilePath();
@@ -136,13 +119,8 @@ class CsvHelper {
     final lines = await file.readAsLines();
 
     final items = <Item>[];
+    if (lines.length <= 1) return items;
 
-    // 没有数据或只有表头
-    if (lines.length <= 1) {
-      return items;
-    }
-
-    // 从第二行开始解析
     for (int i = 1; i < lines.length; i++) {
       final line = lines[i].trim();
       if (line.isEmpty) continue;
@@ -163,52 +141,45 @@ class CsvHelper {
         ),
       );
     }
-
     return items;
   }
 
-  // 添加商品到csv
   static Future<void> addItem(Item item) async {
     await initCsvFile();
     final path = await _getCsvFilePath();
     final file = File(path);
-
-    // 拼接csv行（注意转义逗号，避免格式错误）
     final csvRow =
         '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount}\n';
     await file.writeAsString(csvRow, mode: FileMode.append);
   }
 
-  // 归档/取消归档：标记 archived，不做物理删除
   static Future<void> setArchived(String itemId, bool archived) async {
     final allItem = await readAllItems();
     final updated = allItem
         .map(
           (item) => item.id == itemId
-              ? Item(
-                  id: item.id,
-                  emoji: item.emoji,
-                  name: item.name,
-                  price: item.price,
-                  buyDate: item.buyDate,
-                  archived: archived,
-                  costMode: item.costMode,
-                  useCount: item.useCount,
-                )
-              : item,
-        )
+          ? Item(
+        id: item.id,
+        emoji: item.emoji,
+        name: item.name,
+        price: item.price,
+        buyDate: item.buyDate,
+        archived: archived,
+        costMode: item.costMode,
+        useCount: item.useCount,
+      )
+          : item,
+    )
         .toList();
     await _writeAllItems(updated);
   }
 
-  // 永久删除：从CSV中移除该行（不可恢复）
   static Future<void> deletePermanently(String itemId) async {
     final allItem = await readAllItems();
     final filteredItems = allItem.where((item) => item.id != itemId).toList();
     await _writeAllItems(filteredItems);
   }
 
-  // 更新物品信息（保持 archived 状态）
   static Future<void> updateItem(Item updatedItem) async {
     final allItem = await readAllItems();
     bool replaced = false;
@@ -226,8 +197,113 @@ class CsvHelper {
     await _writeAllItems(updated);
   }
 
-  // 辅助：转义逗号（避免商品名含逗号导致csv格式错误）
   static String _escapeComma(String text) {
-    return text.replaceAll(',', '，'); // 替换为中文逗号
+    return text.replaceAll(',', '，');
+  }
+
+  // ========== 新增导入导出方法 ==========
+
+  /// 解析CSV字符串为Item列表，严格校验
+  static List<Item> parseCSV(String content) {
+    final lines = content.split('\n');
+    if (lines.isEmpty) throw Exception('文件为空');
+    final header = lines.first.trim();
+    if (header != 'id,emoji,name,price,buyDate,archived,costMode,useCount') {
+      throw Exception('CSV格式不正确，缺少表头或列名不符');
+    }
+
+    final items = <Item>[];
+    for (int i = 1; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty) continue;
+      final parts = line.split(',');
+      if (parts.length < 8) {
+        throw Exception('第 ${i+1} 行列数不足8');
+      }
+
+      final id = parts[0];
+      if (id.isEmpty) throw Exception('第 ${i+1} 行ID为空');
+
+      final emoji = parts[1];
+      final name = parts[2];
+      final price = parts[3];
+      if (double.tryParse(price) == null) {
+        throw Exception('第 ${i+1} 行价格格式错误');
+      }
+
+      final buyDate = parts[4];
+      if (buyDate != '未填写') {
+        final partsDate = buyDate.split('-');
+        if (partsDate.length != 3) throw Exception('第 ${i+1} 行日期格式错误');
+        final y = int.tryParse(partsDate[0]);
+        final m = int.tryParse(partsDate[1]);
+        final d = int.tryParse(partsDate[2]);
+        if (y == null || m == null || d == null) throw Exception('第 ${i+1} 行日期格式错误');
+      }
+
+      final archived = parts[5] == '1';
+      final costMode = parts[6];
+      if (costMode != 'day' && costMode != 'count') {
+        throw Exception('第 ${i+1} 行成本模式错误');
+      }
+
+      final useCount = int.tryParse(parts[7]);
+      if (useCount == null || useCount < 0) {
+        throw Exception('第 ${i+1} 行使用次数错误');
+      }
+
+      items.add(Item(
+        id: id,
+        emoji: emoji,
+        name: name,
+        price: price,
+        buyDate: buyDate,
+        archived: archived,
+        costMode: costMode,
+        useCount: useCount,
+      ));
+    }
+    return items;
+  }
+
+  /// 将Item列表转换为CSV字符串
+  static String itemsToCSV(List<Item> items) {
+    final buffer = StringBuffer();
+    buffer.writeln('id,emoji,name,price,buyDate,archived,costMode,useCount');
+    for (final item in items) {
+      buffer.writeln(
+        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount}',
+      );
+    }
+    return buffer.toString();
+  }
+
+  /// 覆盖所有数据
+  static Future<void> overwriteAllItems(List<Item> items) async {
+    await _writeAllItems(items);
+  }
+
+  /// 追加数据（若ID已存在，重新生成新ID）
+  static Future<void> appendItems(List<Item> newItems) async {
+    final existing = await readAllItems();
+    final existingIds = existing.map((e) => e.id).toSet();
+    final uuid = const Uuid();
+    final itemsToAdd = newItems.map((item) {
+      if (existingIds.contains(item.id)) {
+        return Item(
+          id: uuid.v4(),
+          emoji: item.emoji,
+          name: item.name,
+          price: item.price,
+          buyDate: item.buyDate,
+          archived: item.archived,
+          costMode: item.costMode,
+          useCount: item.useCount,
+        );
+      }
+      return item;
+    }).toList();
+    final allItems = [...existing, ...itemsToAdd];
+    await _writeAllItems(allItems);
   }
 }

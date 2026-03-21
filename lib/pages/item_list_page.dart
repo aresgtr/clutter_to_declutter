@@ -3,6 +3,7 @@ import '../utils/csv_helper.dart';
 import 'item_input_page.dart';
 import 'archived_list_page.dart';
 import '../widgets/expandable_item_card.dart';
+import '../widgets/settings_drawer.dart';  // 新增导入
 
 class ItemListPage extends StatefulWidget {
   const ItemListPage({super.key});
@@ -33,7 +34,6 @@ class _ItemListPageState extends State<ItemListPage> {
     final text = raw.trim();
     if (text.isEmpty || text == '未填写') return null;
 
-    // 期望格式：YYYY-M-D（录入页就是这么存的）
     final parts = text.split('-');
     if (parts.length != 3) return null;
     final y = int.tryParse(parts[0]);
@@ -82,7 +82,6 @@ class _ItemListPageState extends State<ItemListPage> {
   String _priceText(Item item) {
     final price = _tryParsePrice(item.price);
     if (price == null) return '';
-    // 保留两位小数，避免统计卡片/列表不一致
     return '¥${price.toStringAsFixed(2)}';
   }
 
@@ -119,11 +118,9 @@ class _ItemListPageState extends State<ItemListPage> {
   @override
   void initState() {
     super.initState();
-    // 启动时加载CSV中的所有商品
     _loadItems();
   }
 
-  // 加载商品数据
   Future<void> _loadItems() async {
     setState(() {
       _isLoading = true;
@@ -142,12 +139,10 @@ class _ItemListPageState extends State<ItemListPage> {
     }
   }
 
-  // 归档商品（软删除）
   Future<void> _archiveItem(String itemId) async {
     try {
       await CsvHelper.setArchived(itemId, true);
       _showSnackBar('已归档');
-      // 重新加载列表
       _loadItems();
     } catch (e) {
       _showSnackBar('归档失败：$e');
@@ -160,7 +155,6 @@ class _ItemListPageState extends State<ItemListPage> {
     });
   }
 
-  // 显示提示
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
@@ -172,6 +166,12 @@ class _ItemListPageState extends State<ItemListPage> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         actions: [
           IconButton(
             tooltip: '归档箱',
@@ -186,10 +186,9 @@ class _ItemListPageState extends State<ItemListPage> {
           ),
         ],
       ),
-      // 浮动添加按钮（右下角）
+      drawer: const SettingsDrawer(),  // 新增抽屉
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // 跳转到录入页，返回后无论结果如何都刷新列表，避免因返回值异常导致不刷新
           await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ItemInputPage()),
@@ -209,9 +208,7 @@ class _ItemListPageState extends State<ItemListPage> {
     );
   }
 
-  // 构建页面主体
   Widget _buildBody() {
-    // 加载中
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -395,7 +392,7 @@ class _StatsCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        color: const Color(0xFFF5F3EE), // 米白
+        color: const Color(0xFFF5F3EE),
         border: Border.all(color: const Color(0xFFE6E1D8)),
         boxShadow: [
           BoxShadow(
