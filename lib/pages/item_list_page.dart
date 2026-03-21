@@ -67,7 +67,7 @@ class _ItemListPageState extends State<ItemListPage> {
     final divisor = days <= 0 ? 1 : days;
     final perDay = price / divisor;
 
-    return '日均：¥${perDay.toStringAsFixed(2)}/天';
+    return '¥${perDay.toStringAsFixed(2)}/天';
   }
 
   String? _perUseCostText(Item item) {
@@ -76,7 +76,7 @@ class _ItemListPageState extends State<ItemListPage> {
     if (price == null) return null;
     final divisor = item.useCount <= 0 ? 1 : item.useCount;
     final perUse = price / divisor;
-    return '单次：¥${perUse.toStringAsFixed(2)}/次';
+    return '¥${perUse.toStringAsFixed(2)}/次';
   }
 
   String _priceText(Item item) {
@@ -246,6 +246,7 @@ class _ItemListPageState extends State<ItemListPage> {
               itemBuilder: (context, index) {
                 final item = _items[index];
                 final isExpanded = _expandedItemId == item.id;
+                final costText = _costLineText(item);
                 return ExpandableItemCard(
                   isExpanded: isExpanded,
                   onToggle: () => _toggleExpanded(item.id),
@@ -254,6 +255,7 @@ class _ItemListPageState extends State<ItemListPage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
+                        flex: _priceText(item).isEmpty ? 1 : 2,
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
@@ -263,27 +265,39 @@ class _ItemListPageState extends State<ItemListPage> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      if (_priceText(item).isNotEmpty)
-                        Text(
-                          _priceText(item),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6B665D),
-                            fontWeight: FontWeight.w500,
+                      if (_priceText(item).isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 1,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              _priceText(item),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6B665D),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         ),
+                      ],
                     ],
                   ),
                   subtitle: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(
-                          _costLineText(item),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFF6B665D)),
+                        child: costText.isEmpty
+                            ? const SizedBox.shrink()
+                            : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            costText,
+                            style: const TextStyle(color: Color(0xFF6B665D)),
+                          ),
                         ),
                       ),
                       if (_dateText(item).isNotEmpty)
