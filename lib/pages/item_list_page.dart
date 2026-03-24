@@ -5,7 +5,19 @@ import 'archived_list_page.dart';
 import '../widgets/expandable_item_card.dart';
 import '../widgets/settings_drawer.dart';
 
-enum SortField { name, date, price }
+// 排序选项枚举
+enum SortOption {
+  nameAsc, // 默认（名称升序）
+  priceAsc,
+  priceDesc,
+  daysAsc,
+  daysDesc,
+  recentAdd, // 最近添加（createdAt 降序）
+  purchaseDateAsc,
+  purchaseDateDesc,
+  dailyCostAsc,
+  dailyCostDesc,
+}
 
 class ItemListPage extends StatefulWidget {
   const ItemListPage({super.key});
@@ -15,17 +27,347 @@ class ItemListPage extends StatefulWidget {
 }
 
 class _ItemListPageState extends State<ItemListPage> {
-  List<Item> _items = [];
+  List<Item> _allItems = []; // 原始未过滤物品
+  List<Item> _items = [];     // 显示物品（经过筛选排序）
   bool _isLoading = true;
   String? _expandedItemId;
 
-  SortField _sortField = SortField.name;
-  bool _isAscending = true;
+  // 筛选状态
+  String _searchKeyword = '';
+  String? _selectedCategory; // 选中的大类，null 表示不筛选
+  double? _minPrice;
+  double? _maxPrice;
+
+  SortOption _sortOption = SortOption.nameAsc;
 
   static const Color _accent = Color(0xFF2F3A34);
   static const Color _lightText = Color(0xFF6B665D);
   static const Color _borderColor = Color(0xFFE6E1D8);
 
+  // 搜索控制器
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadItems();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchKeyword = _searchController.text.trim();
+      _applyFiltersAndSort();
+    });
+  }
+
+  // 获取购买天数（如果购买日期无效，返回 null）
+  int? _getDaysSincePurchase(Item item) {
+    final buyDate = _tryParseBuyDate(item.buyDate);
+    if (buyDate == null) return null;
+    return DateTime.now().difference(buyDate).inDays;
+  }
+
+  // 获取每日成本数值（仅按天计算，按次数返回 null）
+  double? _getDailyCostValue(Item item) {
+    if (item.costMode == 'count') return null;
+    final price = _tryParsePrice(item.price);
+    final buyDate = _tryParseBuyDate(item.buyDate);
+    if (price == null || buyDate == null) return null;
+    final days = DateTime.now().difference(buyDate).inDays;
+    if (days <= 0) return price; // 当天购买，日均成本即价格
+    return price / days;
+  }
+
+  // 应用所有筛选和排序
+  void _applyFiltersAndSort() {
+    List<Item> filtered = List.from(_allItems);
+
+    // 1. 按名称搜索
+    if (_searchKeyword.isNotEmpty) {
+      filtered = filtered.where((item) =>
+          item.name.toLowerCase().contains(_searchKeyword.toLowerCase()))
+          .toList();
+    }
+
+    // 2. 按大类筛选
+    if (_selectedCategory != null && _selectedCategory!.isNotEmpty) {
+      filtered = filtered.where((item) {
+        final parts = item.category.split(':');
+        return parts.isNotEmpty && parts[0] == _selectedCategory;
+      }).toList();
+    }
+
+    // 3. 价格区间筛选
+    if (_minPrice != null) {
+      filtered = filtered.where((item) {
+        final price = _tryParsePrice(item.price);
+        return price != null && price >= _minPrice!;
+      }).toList();
+    }
+    if (_maxPrice != null) {
+      filtered = filtered.where((item) {
+        final price = _tryParsePrice(item.price);
+        return price != null && price <= _maxPrice!;
+      }).toList();
+    }
+
+    // 4. 排序
+    switch (_sortOption) {
+      case SortOption.nameAsc:
+        filtered.sort((a, b) => a.name.compareTo(b.name));
+        break;
+      case SortOption.priceAsc:
+        filtered.sort((a, b) {
+          final pa = _tryParsePrice(a.price) ?? 0.0;
+          final pb = _tryParsePrice(b.price) ?? 0.0;
+          return pa.compareTo(pb);
+        });
+        break;
+      case SortOption.priceDesc:
+        filtered.sort((a, b) {
+          final pa = _tryParsePrice(a.price) ?? 0.0;
+          final pb = _tryParsePrice(b.price) ?? 0.0;
+          return pb.compareTo(pa);
+        });
+        break;
+      case SortOption.daysAsc:
+        filtered.sort((a, b) {
+          final da = _getDaysSincePurchase(a);
+          final db = _getDaysSincePurchase(b);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
+        });
+        break;
+      case SortOption.daysDesc:
+        filtered.sort((a, b) {
+          final da = _getDaysSincePurchase(a);
+          final db = _getDaysSincePurchase(b);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return db.compareTo(da);
+        });
+        break;
+      case SortOption.recentAdd:
+        filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case SortOption.purchaseDateAsc:
+        filtered.sort((a, b) {
+          final da = _tryParseBuyDate(a.buyDate);
+          final db = _tryParseBuyDate(b.buyDate);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
+        });
+        break;
+      case SortOption.purchaseDateDesc:
+        filtered.sort((a, b) {
+          final da = _tryParseBuyDate(a.buyDate);
+          final db = _tryParseBuyDate(b.buyDate);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return db.compareTo(da);
+        });
+        break;
+      case SortOption.dailyCostAsc:
+        filtered.sort((a, b) {
+          final ca = _getDailyCostValue(a);
+          final cb = _getDailyCostValue(b);
+          // 按次计费的放在最后
+          if (ca == null && cb == null) return 0;
+          if (ca == null) return 1;
+          if (cb == null) return -1;
+          return ca.compareTo(cb);
+        });
+        break;
+      case SortOption.dailyCostDesc:
+        filtered.sort((a, b) {
+          final ca = _getDailyCostValue(a);
+          final cb = _getDailyCostValue(b);
+          if (ca == null && cb == null) return 0;
+          if (ca == null) return 1;
+          if (cb == null) return -1;
+          return cb.compareTo(ca);
+        });
+        break;
+    }
+
+    setState(() {
+      _items = filtered;
+    });
+  }
+
+  // 显示排序菜单
+  void _showSortMenu() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('排序方式', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+              _buildSortOptionTile('默认（名称升序）', SortOption.nameAsc),
+              _buildSortOptionTile('价格升序', SortOption.priceAsc),
+              _buildSortOptionTile('价格降序', SortOption.priceDesc),
+              _buildSortOptionTile('使用天数升序', SortOption.daysAsc),
+              _buildSortOptionTile('使用天数降序', SortOption.daysDesc),
+              _buildSortOptionTile('最近添加', SortOption.recentAdd),
+              _buildSortOptionTile('购买时间升序', SortOption.purchaseDateAsc),
+              _buildSortOptionTile('购买时间降序', SortOption.purchaseDateDesc),
+              _buildSortOptionTile('每日成本升序', SortOption.dailyCostAsc),
+              _buildSortOptionTile('每日成本降序', SortOption.dailyCostDesc),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSortOptionTile(String title, SortOption option) {
+    return ListTile(
+      title: Text(title),
+      trailing: _sortOption == option ? const Icon(Icons.check, color: _accent) : null,
+      onTap: () {
+        setState(() {
+          _sortOption = option;
+          _applyFiltersAndSort();
+        });
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  // 显示类别菜单
+  void _showCategoryMenu() {
+    // 获取所有不重复的大类
+    final Set<String> categories = {};
+    for (final item in _allItems) {
+      final parts = item.category.split(':');
+      if (parts.isNotEmpty && parts[0].isNotEmpty) {
+        categories.add(parts[0]);
+      }
+    }
+    final categoryList = categories.toList()..sort();
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('选择分类', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+              ListTile(
+                title: const Text('全部'),
+                trailing: _selectedCategory == null ? const Icon(Icons.check, color: _accent) : null,
+                onTap: () {
+                  setState(() {
+                    _selectedCategory = null;
+                    _applyFiltersAndSort();
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+              ...categoryList.map((cat) => ListTile(
+                title: Text(cat),
+                trailing: _selectedCategory == cat ? const Icon(Icons.check, color: _accent) : null,
+                onTap: () {
+                  setState(() {
+                    _selectedCategory = cat;
+                    _applyFiltersAndSort();
+                  });
+                  Navigator.pop(context);
+                },
+              )),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 显示价格区间对话框
+  void _showPriceRangeDialog() {
+    final TextEditingController minController = TextEditingController(text: _minPrice?.toString() ?? '');
+    final TextEditingController maxController = TextEditingController(text: _maxPrice?.toString() ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('价格区间'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: minController,
+                decoration: const InputDecoration(labelText: '最低价（元）', hintText: '不限'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: maxController,
+                decoration: const InputDecoration(labelText: '最高价（元）', hintText: '不限'),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () {
+                final min = minController.text.trim().isEmpty ? null : double.tryParse(minController.text);
+                final max = maxController.text.trim().isEmpty ? null : double.tryParse(maxController.text);
+                setState(() {
+                  _minPrice = min;
+                  _maxPrice = max;
+                  _applyFiltersAndSort();
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 原有方法
   double _totalValue() {
     double sum = 0;
     for (final item in _items) {
@@ -38,14 +380,12 @@ class _ItemListPageState extends State<ItemListPage> {
   DateTime? _tryParseBuyDate(String raw) {
     final text = raw.trim();
     if (text.isEmpty || text == '未填写') return null;
-
     final parts = text.split('-');
     if (parts.length != 3) return null;
     final y = int.tryParse(parts[0]);
     final m = int.tryParse(parts[1]);
     final d = int.tryParse(parts[2]);
     if (y == null || m == null || d == null) return null;
-
     try {
       return DateTime(y, m, d);
     } catch (_) {
@@ -66,12 +406,9 @@ class _ItemListPageState extends State<ItemListPage> {
     final buyDate = _tryParseBuyDate(item.buyDate);
     if (price == null || buyDate == null) return null;
     if (item.costMode == 'count') return null;
-
-    final now = DateTime.now();
-    final days = now.difference(buyDate).inDays;
+    final days = DateTime.now().difference(buyDate).inDays;
     final divisor = days <= 0 ? 1 : days;
     final perDay = price / divisor;
-
     return '¥${perDay.toStringAsFixed(2)}/天';
   }
 
@@ -100,47 +437,6 @@ class _ItemListPageState extends State<ItemListPage> {
     return _dailyCostText(item) ?? _perUseCostText(item) ?? '';
   }
 
-  void _sortItems() {
-    switch (_sortField) {
-      case SortField.name:
-        _items.sort((a, b) {
-          int result = a.name.compareTo(b.name);
-          return _isAscending ? result : -result;
-        });
-        break;
-      case SortField.date:
-        _items.sort((a, b) {
-          final dateA = _tryParseBuyDate(a.buyDate);
-          final dateB = _tryParseBuyDate(b.buyDate);
-          if (dateA == null && dateB == null) return 0;
-          if (dateA == null) return 1;
-          if (dateB == null) return -1;
-          int result = dateA.compareTo(dateB);
-          return _isAscending ? result : -result;
-        });
-        break;
-      case SortField.price:
-        _items.sort((a, b) {
-          final priceA = _tryParsePrice(a.price) ?? 0.0;
-          final priceB = _tryParsePrice(b.price) ?? 0.0;
-          int result = priceA.compareTo(priceB);
-          return _isAscending ? result : -result;
-        });
-        break;
-    }
-  }
-
-  void _setSort(SortField field) {
-    if (_sortField == field) {
-      _isAscending = !_isAscending;
-    } else {
-      _sortField = field;
-      _isAscending = true;
-    }
-    _sortItems();
-    setState(() {});
-  }
-
   Future<void> _setUseCount(Item item, int useCount) async {
     final next = Item(
       id: item.id,
@@ -151,6 +447,8 @@ class _ItemListPageState extends State<ItemListPage> {
       archived: item.archived,
       costMode: item.costMode,
       useCount: useCount < 0 ? 0 : useCount,
+      category: item.category,
+      createdAt: item.createdAt,
     );
 
     try {
@@ -161,12 +459,6 @@ class _ItemListPageState extends State<ItemListPage> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadItems();
-  }
-
   Future<void> _loadItems() async {
     setState(() {
       _isLoading = true;
@@ -174,9 +466,9 @@ class _ItemListPageState extends State<ItemListPage> {
     try {
       final items = await CsvHelper.readAllItems();
       setState(() {
-        _items = items.where((e) => !e.archived).toList();
+        _allItems = items.where((e) => !e.archived).toList();
         _isLoading = false;
-        _sortItems();
+        _applyFiltersAndSort(); // 应用筛选排序
       });
     } catch (e) {
       setState(() {
@@ -269,9 +561,9 @@ class _ItemListPageState extends State<ItemListPage> {
             totalValue: _totalValue(),
           ),
         ),
-        // 排序栏 - 高度减半
+        // 筛选栏
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), // 原 vertical: 8
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
             border: Border(
@@ -280,26 +572,83 @@ class _ItemListPageState extends State<ItemListPage> {
             ),
             color: const Color(0xFFFAF9F7),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              _SortChip(
-                label: '名称',
-                isActive: _sortField == SortField.name,
-                icon: _getSortIcon(SortField.name),
-                onTap: () => _setSort(SortField.name),
+              // 搜索框
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  decoration: InputDecoration(
+                    hintText: '搜索名称',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                  ),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _applyFiltersAndSort(),
+                ),
               ),
-              _SortChip(
-                label: '购买日期',
-                isActive: _sortField == SortField.date,
-                icon: _getSortIcon(SortField.date),
-                onTap: () => _setSort(SortField.date),
+              // 排序按钮
+              OutlinedButton(
+                onPressed: _showSortMenu,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_getSortButtonText()),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, size: 18),
+                  ],
+                ),
               ),
-              _SortChip(
-                label: '金额',
-                isActive: _sortField == SortField.price,
-                icon: _getSortIcon(SortField.price),
-                onTap: () => _setSort(SortField.price),
+              // 类别按钮
+              OutlinedButton(
+                onPressed: _showCategoryMenu,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_getCategoryButtonText()),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, size: 18),
+                  ],
+                ),
+              ),
+              // 价格区间
+              OutlinedButton(
+                onPressed: _showPriceRangeDialog,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_getPriceRangeText()),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, size: 18),
+                  ],
+                ),
               ),
             ],
           ),
@@ -455,55 +804,49 @@ class _ItemListPageState extends State<ItemListPage> {
     );
   }
 
-  IconData _getSortIcon(SortField field) {
-    if (_sortField != field) return Icons.unfold_more;
-    return _isAscending ? Icons.arrow_upward : Icons.arrow_downward;
+  String _getSortButtonText() {
+    switch (_sortOption) {
+      case SortOption.nameAsc:
+        return '默认排序';
+      case SortOption.priceAsc:
+        return '价格升序';
+      case SortOption.priceDesc:
+        return '价格降序';
+      case SortOption.daysAsc:
+        return '使用天数升序';
+      case SortOption.daysDesc:
+        return '使用天数降序';
+      case SortOption.recentAdd:
+        return '最近添加';
+      case SortOption.purchaseDateAsc:
+        return '购买时间升序';
+      case SortOption.purchaseDateDesc:
+        return '购买时间降序';
+      case SortOption.dailyCostAsc:
+        return '每日成本升序';
+      case SortOption.dailyCostDesc:
+        return '每日成本降序';
+    }
+  }
+
+  String _getCategoryButtonText() {
+    if (_selectedCategory == null) return '全部类别';
+    return _selectedCategory!;
+  }
+
+  String _getPriceRangeText() {
+    if (_minPrice != null && _maxPrice != null) {
+      return '¥${_minPrice!.toStringAsFixed(0)}-${_maxPrice!.toStringAsFixed(0)}';
+    } else if (_minPrice != null) {
+      return '≥¥${_minPrice!.toStringAsFixed(0)}';
+    } else if (_maxPrice != null) {
+      return '≤¥${_maxPrice!.toStringAsFixed(0)}';
+    }
+    return '价格范围';
   }
 }
 
-class _SortChip extends StatelessWidget {
-  final String label;
-  final bool isActive;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _SortChip({
-    required this.label,
-    required this.isActive,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // 原 (12,6)
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: isActive ? const Color(0xFF2F3A34).withValues(alpha: 0.1) : Colors.transparent,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12, // 原 14，适当缩小
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: isActive ? const Color(0xFF2F3A34) : const Color(0xFF6B665D),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(icon, size: 14, color: isActive ? const Color(0xFF2F3A34) : const Color(0xFF9E9A92)), // 原 16
-          ],
-        ),
-      ),
-    );
-  }
-}
-
+// 以下 _StatsCard 和 _Metric 类保持不变
 class _StatsCard extends StatelessWidget {
   final int itemCount;
   final double totalValue;
