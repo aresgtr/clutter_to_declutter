@@ -12,7 +12,7 @@ const List<String> commonEmojis = [
   '📦', // 其他
 ];
 
-// +++ 新增：分类数据结构
+// 分类数据
 class CategoryData {
   static const Map<String, List<String>> categories = {
     '数码产品': ['手机', '平板', '笔记本电脑', '耳机', '相机', '智能手表', '充电器', '数据线', '其他'],
@@ -43,7 +43,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
   late String _selectedEmoji;
   late String _costMode; // day / count
   late int _useCount;
-  late String _category; // +++ 新增：分类，存储 "大类:小类"
+  late String _category; // 分类，格式 "大类:小类"
 
   final _uuid = const Uuid();
 
@@ -63,7 +63,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
     _buyDate = _tryParseBuyDate(existing?.buyDate);
     _costMode = (existing?.costMode == 'count') ? 'count' : 'day';
     _useCount = existing?.useCount ?? 0;
-    _category = existing?.category ?? ''; // +++ 新增
+    _category = existing?.category ?? '';
   }
 
   @override
@@ -85,7 +85,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
     return DateTime(y, m, d);
   }
 
-  // +++ 新增：打开分类选择器
+  // 打开分类选择器
   Future<void> _selectCategory() async {
     final result = await showModalBottomSheet<Map<String, String>>(
       context: context,
@@ -145,7 +145,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
             ),
             const SizedBox(height: 16),
 
-            // +++ 新增：商品分类输入框
+            // 2. 商品分类选择器
             GestureDetector(
               onTap: _selectCategory,
               child: Container(
@@ -171,7 +171,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
             ),
             const SizedBox(height: 16),
 
-            // 成本计算方式（原样）
+            // 3. 成本计算方式
             Row(
               children: [
                 const Expanded(
@@ -224,7 +224,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
                 ],
               ),
             ],
-            // 商品名称输入框
+            // 4. 商品名称输入框
             TextField(
               controller: _nameController,
               decoration: const InputDecoration(
@@ -234,7 +234,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
               ),
             ),
             const SizedBox(height: 16),
-            // 购买价格输入框
+            // 5. 购买价格输入框
             TextField(
               controller: _priceController,
               decoration: const InputDecoration(
@@ -245,7 +245,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
               keyboardType: TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
-            // 购买日期选择按钮
+            // 6. 购买日期选择按钮
             ElevatedButton(
               onPressed: () async {
                 final pickedDate = await showDatePicker(
@@ -265,7 +265,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
                   : '购买日期：${_buyDate!.year}-${_buyDate!.month}-${_buyDate!.day}'),
             ),
             const SizedBox(height: 24),
-            // 保存按钮
+            // 7. 保存按钮
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -301,7 +301,8 @@ class _ItemInputPageState extends State<ItemInputPage> {
       archived: widget.item?.archived ?? false,
       costMode: _costMode,
       useCount: _costMode == 'count' ? _useCount : 0,
-      category: _category, // +++ 保存分类
+      category: _category,
+      createdAt: widget.item?.createdAt ?? DateTime.now().toIso8601String(), // 新增：记录添加时间
     );
 
     try {
@@ -326,7 +327,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
   }
 }
 
-// +++ 新增：分类选择器组件（底部弹窗）
+// 分类选择器组件
 class _CategoryPicker extends StatefulWidget {
   final String initialCategory;
 

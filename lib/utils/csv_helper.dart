@@ -12,6 +12,7 @@ class Item {
   final String costMode;
   final int useCount;
   final String category;
+  final String createdAt; // 新增：添加时间
 
   Item({
     required this.id,
@@ -23,6 +24,7 @@ class Item {
     this.costMode = 'day',
     this.useCount = 0,
     this.category = '',
+    this.createdAt = '', // 新增，默认空字符串
   });
 
   Map<String, dynamic> toMap() {
@@ -36,6 +38,7 @@ class Item {
       'costMode': costMode,
       'useCount': useCount.toString(),
       'category': category,
+      'createdAt': createdAt,
     };
   }
 
@@ -50,12 +53,13 @@ class Item {
       costMode: (map['costMode'] ?? 'day').toString(),
       useCount: int.tryParse((map['useCount'] ?? '0').toString()) ?? 0,
       category: map['category'] ?? '',
+      createdAt: map['createdAt'] ?? '',
     );
   }
 }
 
 class CsvHelper {
-  static const _header = 'id,emoji,name,price,buyDate,archived,costMode,useCount,category\n';
+  static const _header = 'id,emoji,name,price,buyDate,archived,costMode,useCount,category,createdAt\n';
 
   static Future<String> _getCsvFilePath() async {
     final directory = await getApplicationDocumentsDirectory();
@@ -77,7 +81,8 @@ class CsvHelper {
     }
 
     final firstLine = lines.first.trim();
-    if (!firstLine.contains('category')) {
+    // 检查是否缺少 createdAt 列（新字段）
+    if (!firstLine.contains('createdAt')) {
       final migrated = <String>[];
       migrated.add(_header.trimRight());
 
@@ -86,21 +91,32 @@ class CsvHelper {
         if (line.isEmpty) continue;
         final parts = line.split(',');
 
+        // 根据不同旧格式补全到新格式
+        // 旧格式5列: id,emoji,name,price,buyDate
         if (parts.length == 5) {
-          migrated.add('$line,0,day,0,');
+          migrated.add('$line,0,day,0,,');
           continue;
         }
+        // 旧格式6列: id,emoji,name,price,buyDate,archived
         if (parts.length == 6) {
-          migrated.add('$line,day,0,');
+          migrated.add('$line,day,0,,');
           continue;
         }
+        // 旧格式8列: id,emoji,name,price,buyDate,archived,costMode,useCount
         if (parts.length == 8) {
+          migrated.add('$line,,');
+          continue;
+        }
+        // 旧格式9列: 有 category 无 createdAt
+        if (parts.length == 9) {
           migrated.add('$line,');
           continue;
         }
-        if (parts.length == 9) {
+        // 已经是新格式
+        if (parts.length == 10) {
           migrated.add(line);
         } else {
+          // 其他情况，保留原行
           migrated.add(line);
         }
       }
@@ -116,7 +132,7 @@ class CsvHelper {
     final buffer = StringBuffer()..write(_header);
     for (final item in items) {
       buffer.writeln(
-        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount},${_escapeComma(item.category)}',
+        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount},${_escapeComma(item.category)},${item.createdAt}',
       );
     }
     await file.writeAsString(buffer.toString());
@@ -149,6 +165,7 @@ class CsvHelper {
           costMode: parts.length >= 7 ? parts[6] : 'day',
           useCount: parts.length >= 8 ? (int.tryParse(parts[7]) ?? 0) : 0,
           category: parts.length >= 9 ? parts[8] : '',
+          createdAt: parts.length >= 10 ? parts[9] : '',
         ),
       );
     }
@@ -160,7 +177,7 @@ class CsvHelper {
     final path = await _getCsvFilePath();
     final file = File(path);
     final csvRow =
-        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount},${_escapeComma(item.category)}\n';
+        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount},${_escapeComma(item.category)},${item.createdAt}\n';
     await file.writeAsString(csvRow, mode: FileMode.append);
   }
 
@@ -179,6 +196,7 @@ class CsvHelper {
         costMode: item.costMode,
         useCount: item.useCount,
         category: item.category,
+        createdAt: item.createdAt,
       )
           : item,
     )
@@ -219,7 +237,6 @@ class CsvHelper {
     final lines = content.split('\n');
     if (lines.isEmpty) throw Exception('文件为空');
 
-    // 检查表头（兼容有/无 category）
     final header = lines.first.trim();
     if (!header.startsWith('id,emoji,name,price,buyDate,archived,costMode,useCount')) {
       throw Exception('CSV格式不正确，缺少表头或列名不符');
@@ -230,7 +247,6 @@ class CsvHelper {
       final line = lines[i].trim();
       if (line.isEmpty) continue;
       final parts = line.split(',');
-      // 允许8列（无category）或9列（有category）
       if (parts.length < 8) {
         throw Exception('第 ${i+1} 行列数不足8');
       }
@@ -267,6 +283,7 @@ class CsvHelper {
       }
 
       final category = parts.length >= 9 ? parts[8] : '';
+      final createdAt = parts.length >= 10 ? parts[9] : '';
 
       items.add(Item(
         id: id,
@@ -278,6 +295,7 @@ class CsvHelper {
         costMode: costMode,
         useCount: useCount,
         category: category,
+        createdAt: createdAt,
       ));
     }
     return items;
@@ -288,7 +306,7 @@ class CsvHelper {
     buffer.writeln(_header.trimRight());
     for (final item in items) {
       buffer.writeln(
-        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount},${_escapeComma(item.category)}',
+        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount},${_escapeComma(item.category)},${item.createdAt}',
       );
     }
     return buffer.toString();
@@ -314,6 +332,7 @@ class CsvHelper {
           costMode: item.costMode,
           useCount: item.useCount,
           category: item.category,
+          createdAt: item.createdAt,
         );
       }
       return item;
