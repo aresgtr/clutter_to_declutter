@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../utils/csv_helper.dart';
+import '../utils/utils.dart'; // 新增
 
 // 预设常用emoji
 const List<String> commonEmojis = [
@@ -60,7 +61,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
     final priceText = (existing?.price ?? '').trim();
     _priceController = TextEditingController(text: (priceText == '0') ? '' : priceText);
 
-    _buyDate = _tryParseBuyDate(existing?.buyDate);
+    _buyDate = parseDate(existing?.buyDate);
     _costMode = (existing?.costMode == 'count') ? 'count' : 'day';
     _useCount = existing?.useCount ?? 0;
     _category = existing?.category ?? '';
@@ -71,18 +72,6 @@ class _ItemInputPageState extends State<ItemInputPage> {
     _nameController.dispose();
     _priceController.dispose();
     super.dispose();
-  }
-
-  DateTime? _tryParseBuyDate(String? raw) {
-    final text = (raw ?? '').trim();
-    if (text.isEmpty || text == '未填写') return null;
-    final parts = text.split('-');
-    if (parts.length != 3) return null;
-    final y = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    final d = int.tryParse(parts[2]);
-    if (y == null || m == null || d == null) return null;
-    return DateTime(y, m, d);
   }
 
   // 打开分类选择器
@@ -283,7 +272,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
     final String name = _nameController.text.trim();
     final String price = _priceController.text.trim();
     if (name.isEmpty) {
-      _showSnackBar('请输入商品名称');
+      showSnackBar(context, '请输入商品名称');
       return;
     }
 
@@ -302,32 +291,26 @@ class _ItemInputPageState extends State<ItemInputPage> {
       costMode: _costMode,
       useCount: _costMode == 'count' ? _useCount : 0,
       category: _category,
-      createdAt: widget.item?.createdAt ?? DateTime.now().toIso8601String(), // 新增：记录添加时间
+      createdAt: widget.item?.createdAt ?? DateTime.now().toIso8601String(),
     );
 
     try {
       if (_isEditMode) {
         await CsvHelper.updateItem(item);
-        _showSnackBar('修改已保存！');
+        showSnackBar(context, '修改已保存！');
       } else {
         await CsvHelper.addItem(item);
-        _showSnackBar('物品添加成功！');
+        showSnackBar(context, '物品添加成功！');
       }
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
-      _showSnackBar('${_isEditMode ? '保存' : '添加'}失败：$e');
+      showSnackBar(context, '${_isEditMode ? '保存' : '添加'}失败：$e');
     }
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
   }
 }
 
-// 分类选择器组件
+// 分类选择器组件（未改动）
 class _CategoryPicker extends StatefulWidget {
   final String initialCategory;
 

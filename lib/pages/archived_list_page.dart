@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/csv_helper.dart';
 import '../widgets/expandable_item_card.dart';
+import '../utils/utils.dart'; // 新增
 
 class ArchivedListPage extends StatefulWidget {
   const ArchivedListPage({super.key});
@@ -35,7 +36,7 @@ class _ArchivedListPageState extends State<ArchivedListPage> {
       setState(() {
         _isLoading = false;
       });
-      _showSnackBar('加载失败：$e');
+      showSnackBar(context, '加载失败：$e');
     }
   }
 
@@ -48,20 +49,20 @@ class _ArchivedListPageState extends State<ArchivedListPage> {
   Future<void> _deletePermanently(String itemId) async {
     try {
       await CsvHelper.deletePermanently(itemId);
-      _showSnackBar('已永久删除');
+      showSnackBar(context, '已永久删除');
       _loadItems();
     } catch (e) {
-      _showSnackBar('删除失败：$e');
+      showSnackBar(context, '删除失败：$e');
     }
   }
 
   Future<void> _unarchive(String itemId) async {
     try {
       await CsvHelper.setArchived(itemId, false);
-      _showSnackBar('已移回清单');
+      showSnackBar(context, '已移回清单');
       _loadItems();
     } catch (e) {
-      _showSnackBar('操作失败：$e');
+      showSnackBar(context, '操作失败：$e');
     }
   }
 
@@ -84,12 +85,6 @@ class _ArchivedListPageState extends State<ArchivedListPage> {
       ),
     ) ??
         false;
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
   }
 
   @override

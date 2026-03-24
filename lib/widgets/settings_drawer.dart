@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import '../utils/csv_helper.dart';
+import '../utils/utils.dart'; // 新增
 
 class SettingsDrawer extends StatelessWidget {
   const SettingsDrawer({super.key});
@@ -25,9 +26,7 @@ class SettingsDrawer extends StatelessWidget {
       importedItems = CsvHelper.parseCSV(content);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('CSV格式错误: $e')),
-        );
+        showSnackBar(context, 'CSV格式错误: $e');
       }
       return;
     }
@@ -58,15 +57,11 @@ class SettingsDrawer extends StatelessWidget {
         await CsvHelper.appendItems(importedItems!);
       }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('导入成功')),
-        );
+        showSnackBar(context, '导入成功');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败: $e')),
-        );
+        showSnackBar(context, '导入失败: $e');
       }
     }
   }
@@ -84,9 +79,7 @@ class SettingsDrawer extends StatelessWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导出失败: $e')),
-        );
+        showSnackBar(context, '导出失败: $e');
       }
     }
   }

@@ -4,6 +4,7 @@ import 'item_input_page.dart';
 import 'archived_list_page.dart';
 import '../widgets/expandable_item_card.dart';
 import '../widgets/settings_drawer.dart';
+import '../utils/utils.dart'; // 新增
 
 enum SortOption {
   nameAsc,
@@ -67,15 +68,15 @@ class _ItemListPageState extends State<ItemListPage> {
   }
 
   int? _getDaysSincePurchase(Item item) {
-    final buyDate = _tryParseBuyDate(item.buyDate);
+    final buyDate = parseDate(item.buyDate);
     if (buyDate == null) return null;
     return DateTime.now().difference(buyDate).inDays;
   }
 
   double? _getDailyCostValue(Item item) {
     if (item.costMode == 'count') return null;
-    final price = _tryParsePrice(item.price);
-    final buyDate = _tryParseBuyDate(item.buyDate);
+    final price = parsePrice(item.price);
+    final buyDate = parseDate(item.buyDate);
     if (price == null || buyDate == null) return null;
     final days = DateTime.now().difference(buyDate).inDays;
     if (days <= 0) return price;
@@ -100,13 +101,13 @@ class _ItemListPageState extends State<ItemListPage> {
 
       if (_minPrice != null) {
         filtered = filtered.where((item) {
-          final price = _tryParsePrice(item.price);
+          final price = parsePrice(item.price);
           return price != null && price >= _minPrice!;
         }).toList();
       }
       if (_maxPrice != null) {
         filtered = filtered.where((item) {
-          final price = _tryParsePrice(item.price);
+          final price = parsePrice(item.price);
           return price != null && price <= _maxPrice!;
         }).toList();
       }
@@ -117,15 +118,15 @@ class _ItemListPageState extends State<ItemListPage> {
           break;
         case SortOption.priceAsc:
           filtered.sort((a, b) {
-            final pa = _tryParsePrice(a.price) ?? 0.0;
-            final pb = _tryParsePrice(b.price) ?? 0.0;
+            final pa = parsePrice(a.price) ?? 0.0;
+            final pb = parsePrice(b.price) ?? 0.0;
             return pa.compareTo(pb);
           });
           break;
         case SortOption.priceDesc:
           filtered.sort((a, b) {
-            final pa = _tryParsePrice(a.price) ?? 0.0;
-            final pb = _tryParsePrice(b.price) ?? 0.0;
+            final pa = parsePrice(a.price) ?? 0.0;
+            final pb = parsePrice(b.price) ?? 0.0;
             return pb.compareTo(pa);
           });
           break;
@@ -154,8 +155,8 @@ class _ItemListPageState extends State<ItemListPage> {
           break;
         case SortOption.purchaseDateAsc:
           filtered.sort((a, b) {
-            final da = _tryParseBuyDate(a.buyDate);
-            final db = _tryParseBuyDate(b.buyDate);
+            final da = parseDate(a.buyDate);
+            final db = parseDate(b.buyDate);
             if (da == null && db == null) return 0;
             if (da == null) return 1;
             if (db == null) return -1;
@@ -164,8 +165,8 @@ class _ItemListPageState extends State<ItemListPage> {
           break;
         case SortOption.purchaseDateDesc:
           filtered.sort((a, b) {
-            final da = _tryParseBuyDate(a.buyDate);
-            final db = _tryParseBuyDate(b.buyDate);
+            final da = parseDate(a.buyDate);
+            final db = parseDate(b.buyDate);
             if (da == null && db == null) return 0;
             if (da == null) return 1;
             if (db == null) return -1;
@@ -198,8 +199,7 @@ class _ItemListPageState extends State<ItemListPage> {
         _items = filtered;
       });
     } catch (e) {
-      // 排序出错时，保持原列表不变，并显示错误
-      _showSnackBar('排序失败: $e');
+      showSnackBar(context, '排序失败: $e');
     }
   }
 
@@ -353,43 +353,19 @@ class _ItemListPageState extends State<ItemListPage> {
     );
   }
 
-  // ========== 原有辅助方法 ==========
+  // ========== 辅助方法（使用工具类） ==========
   double _totalValue() {
     double sum = 0;
     for (final item in _items) {
-      final price = _tryParsePrice(item.price);
+      final price = parsePrice(item.price);
       if (price != null) sum += price;
     }
     return sum;
   }
 
-  DateTime? _tryParseBuyDate(String raw) {
-    final text = raw.trim();
-    if (text.isEmpty || text == '未填写') return null;
-    final parts = text.split('-');
-    if (parts.length != 3) return null;
-    final y = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    final d = int.tryParse(parts[2]);
-    if (y == null || m == null || d == null) return null;
-    try {
-      return DateTime(y, m, d);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  double? _tryParsePrice(String raw) {
-    final text = raw.trim();
-    if (text.isEmpty) return null;
-    final value = double.tryParse(text);
-    if (value == null || value <= 0) return null;
-    return value;
-  }
-
   String? _dailyCostText(Item item) {
-    final price = _tryParsePrice(item.price);
-    final buyDate = _tryParseBuyDate(item.buyDate);
+    final price = parsePrice(item.price);
+    final buyDate = parseDate(item.buyDate);
     if (price == null || buyDate == null) return null;
     if (item.costMode == 'count') return null;
     final days = DateTime.now().difference(buyDate).inDays;
@@ -400,7 +376,7 @@ class _ItemListPageState extends State<ItemListPage> {
 
   String? _perUseCostText(Item item) {
     if (item.costMode != 'count') return null;
-    final price = _tryParsePrice(item.price);
+    final price = parsePrice(item.price);
     if (price == null) return null;
     final divisor = item.useCount <= 0 ? 1 : item.useCount;
     final perUse = price / divisor;
@@ -408,13 +384,13 @@ class _ItemListPageState extends State<ItemListPage> {
   }
 
   String _priceText(Item item) {
-    final price = _tryParsePrice(item.price);
+    final price = parsePrice(item.price);
     if (price == null) return '';
     return '¥${price.toStringAsFixed(2)}';
   }
 
   String _dateText(Item item) {
-    final date = _tryParseBuyDate(item.buyDate);
+    final date = parseDate(item.buyDate);
     if (date == null) return '';
     return '${date.year}-${date.month}-${date.day}';
   }
@@ -441,7 +417,7 @@ class _ItemListPageState extends State<ItemListPage> {
       await CsvHelper.updateItem(next);
       _loadItems();
     } catch (e) {
-      _showSnackBar('更新次数失败：$e');
+      showSnackBar(context, '更新次数失败：$e');
     }
   }
 
@@ -455,22 +431,22 @@ class _ItemListPageState extends State<ItemListPage> {
         _allItems = items.where((e) => !e.archived).toList();
         _isLoading = false;
       });
-      _applyFiltersAndSort(); // 在 setState 外部调用，避免嵌套
+      _applyFiltersAndSort();
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      _showSnackBar('加载失败：$e');
+      showSnackBar(context, '加载失败：$e');
     }
   }
 
   Future<void> _archiveItem(String itemId) async {
     try {
       await CsvHelper.setArchived(itemId, true);
-      _showSnackBar('已归档');
+      showSnackBar(context, '已归档');
       _loadItems();
     } catch (e) {
-      _showSnackBar('归档失败：$e');
+      showSnackBar(context, '归档失败：$e');
     }
   }
 
@@ -478,12 +454,6 @@ class _ItemListPageState extends State<ItemListPage> {
     setState(() {
       _expandedItemId = (_expandedItemId == itemId) ? null : itemId;
     });
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
   }
   // ==========================================
 
