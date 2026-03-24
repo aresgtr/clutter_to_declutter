@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../utils/csv_helper.dart';
 import '../widgets/expandable_item_card.dart';
-import '../widgets/settings_drawer.dart';  // 新增导入
 
 class ArchivedListPage extends StatefulWidget {
   const ArchivedListPage({super.key});
@@ -99,14 +98,11 @@ class _ArchivedListPageState extends State<ArchivedListPage> {
       appBar: AppBar(
         title: const Text('归档箱'),
         centerTitle: true,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
-      drawer: const SettingsDrawer(),  // 新增抽屉
       body: _buildBody(),
     );
   }
