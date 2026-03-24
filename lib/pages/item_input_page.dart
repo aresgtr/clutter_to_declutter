@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart'; // 生成唯一ID（需在pubspec.yaml添加uuid: ^4.4.0）
+import 'package:uuid/uuid.dart';
 import '../utils/csv_helper.dart';
 
 // 预设常用emoji
@@ -11,6 +11,21 @@ const List<String> commonEmojis = [
   '🛋️', '🧹', '🪑', // 家居类
   '📦', // 其他
 ];
+
+// +++ 新增：分类数据结构
+class CategoryData {
+  static const Map<String, List<String>> categories = {
+    '数码产品': ['手机', '平板', '笔记本电脑', '耳机', '相机', '智能手表', '充电器', '数据线', '其他'],
+    '家居用品': ['家具', '床上用品', '灯具', '收纳用品', '装饰品', '清洁工具', '家用电器', '其他'],
+    '厨具吧台': ['锅具', '刀具', '餐具', '杯具', '厨房小电器', '调料器具', '烘焙用具', '其他'],
+    '服饰装扮': ['上衣', '裤子', '裙子', '外套', '鞋类', '配饰', '箱包', '其他'],
+    '美妆护理': ['护肤品', '彩妆', '洗护用品', '香水', '美发工具', '其他'],
+    '运动户外': ['运动鞋服', '健身器材', '户外装备', '球类', '瑜伽用品', '其他'],
+    '图书文具': ['书籍', '笔记本', '笔类', '办公用品', '其他'],
+    '玩具': ['积木拼图', '模型', '玩偶', '电子玩具', '桌游', '其他'],
+    '其他': ['其他'],
+  };
+}
 
 class ItemInputPage extends StatefulWidget {
   final Item? item;
@@ -28,8 +43,8 @@ class _ItemInputPageState extends State<ItemInputPage> {
   late String _selectedEmoji;
   late String _costMode; // day / count
   late int _useCount;
+  late String _category; // +++ 新增：分类，存储 "大类:小类"
 
-  // 生成唯一id
   final _uuid = const Uuid();
 
   bool get _isEditMode => widget.item != null;
@@ -48,6 +63,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
     _buyDate = _tryParseBuyDate(existing?.buyDate);
     _costMode = (existing?.costMode == 'count') ? 'count' : 'day';
     _useCount = existing?.useCount ?? 0;
+    _category = existing?.category ?? ''; // +++ 新增
   }
 
   @override
@@ -69,11 +85,32 @@ class _ItemInputPageState extends State<ItemInputPage> {
     return DateTime(y, m, d);
   }
 
+  // +++ 新增：打开分类选择器
+  Future<void> _selectCategory() async {
+    final result = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return _CategoryPicker(
+          initialCategory: _category,
+        );
+      },
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _category = '${result['main']}:${result['sub']}';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(_isEditMode ? '编辑商品' : '添加商品')),
-      body: SingleChildScrollView(  // 避免键盘遮挡
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
@@ -107,7 +144,34 @@ class _ItemInputPageState extends State<ItemInputPage> {
               ),
             ),
             const SizedBox(height: 16),
-            // 2. 成本计算方式
+
+            // +++ 新增：商品分类输入框
+            GestureDetector(
+              onTap: _selectCategory,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _category.isEmpty ? '选择商品分类' : _category.replaceAll(':', ' > '),
+                      style: TextStyle(
+                        color: _category.isEmpty ? Colors.grey[600] : Colors.black,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Icon(Icons.arrow_drop_down, color: Colors.grey[600]),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 成本计算方式（原样）
             Row(
               children: [
                 const Expanded(
@@ -160,7 +224,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
                 ],
               ),
             ],
-            // 2. 商品名称输入框
+            // 商品名称输入框
             TextField(
               controller: _nameController,
               decoration: const InputDecoration(
@@ -170,7 +234,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
               ),
             ),
             const SizedBox(height: 16),
-            // 3. 购买价格输入框
+            // 购买价格输入框
             TextField(
               controller: _priceController,
               decoration: const InputDecoration(
@@ -181,43 +245,41 @@ class _ItemInputPageState extends State<ItemInputPage> {
               keyboardType: TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
-            // 4. 购买日期选择按钮
+            // 购买日期选择按钮
             ElevatedButton(
-                onPressed: () async {
-                  final pickedDate = await showDatePicker(
-                      context: context,
-                      initialDate: _buyDate ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                  );
-                  if (pickedDate != null) {
-                    setState(() {
-                      _buyDate = pickedDate;
-                    });
-                  }
-                },
-                child: Text(_buyDate == null
-                    ? '选择购买日期（可选）'
-                    : '购买日期：${_buyDate!.year}-${_buyDate!.month}-${_buyDate!.day}')
+              onPressed: () async {
+                final pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: _buyDate ?? DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                );
+                if (pickedDate != null) {
+                  setState(() {
+                    _buyDate = pickedDate;
+                  });
+                }
+              },
+              child: Text(_buyDate == null
+                  ? '选择购买日期（可选）'
+                  : '购买日期：${_buyDate!.year}-${_buyDate!.month}-${_buyDate!.day}'),
             ),
             const SizedBox(height: 24),
-            // 5. 保存按钮
+            // 保存按钮
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                  onPressed: _saveItem,
-                  child: Text(_isEditMode ? '保存修改' : '保存物品'),
+                onPressed: _saveItem,
+                child: Text(_isEditMode ? '保存修改' : '保存物品'),
               ),
-            )
+            ),
           ],
         ),
       ),
     );
   }
 
-  // 保存物品到csv
   Future<void> _saveItem() async {
-    // 1. 基础校验
     final String name = _nameController.text.trim();
     final String price = _priceController.text.trim();
     if (name.isEmpty) {
@@ -225,15 +287,13 @@ class _ItemInputPageState extends State<ItemInputPage> {
       return;
     }
 
-    // 2. 处理可选字段空值
     final String finalPrice = price.isEmpty ? '0' : price;
     final String finalBuyDate = _buyDate == null
         ? '未填写'
         : '${_buyDate!.year}-${_buyDate!.month}-${_buyDate!.day}';
 
-    // 3. 构建商品对象
     final item = Item(
-      id: widget.item?.id ?? _uuid.v4(), // 编辑保留id，新增生成id
+      id: widget.item?.id ?? _uuid.v4(),
       emoji: _selectedEmoji,
       name: name,
       price: finalPrice,
@@ -241,9 +301,9 @@ class _ItemInputPageState extends State<ItemInputPage> {
       archived: widget.item?.archived ?? false,
       costMode: _costMode,
       useCount: _costMode == 'count' ? _useCount : 0,
+      category: _category, // +++ 保存分类
     );
 
-    // 3. 写入csv
     try {
       if (_isEditMode) {
         await CsvHelper.updateItem(item);
@@ -252,19 +312,137 @@ class _ItemInputPageState extends State<ItemInputPage> {
         await CsvHelper.addItem(item);
         _showSnackBar('物品添加成功！');
       }
-
-      // 4. 关闭页面，返回列表页
       if (!mounted) return;
-      Navigator.pop(context, true); // 传true通知列表页刷新
+      Navigator.pop(context, true);
     } catch (e) {
       _showSnackBar('${_isEditMode ? '保存' : '添加'}失败：$e');
     }
   }
 
-  // 辅助：显示提示
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+}
+
+// +++ 新增：分类选择器组件（底部弹窗）
+class _CategoryPicker extends StatefulWidget {
+  final String initialCategory;
+
+  const _CategoryPicker({required this.initialCategory});
+
+  @override
+  State<_CategoryPicker> createState() => _CategoryPickerState();
+}
+
+class _CategoryPickerState extends State<_CategoryPicker> {
+  late String _selectedMain;
+  late String _selectedSub;
+
+  final List<String> _mainCategories = CategoryData.categories.keys.toList();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialCategory.isNotEmpty) {
+      final parts = widget.initialCategory.split(':');
+      if (parts.length == 2 && _mainCategories.contains(parts[0])) {
+        _selectedMain = parts[0];
+        _selectedSub = parts[1];
+      } else {
+        _selectedMain = _mainCategories.first;
+        _selectedSub = CategoryData.categories[_selectedMain]!.first;
+      }
+    } else {
+      _selectedMain = _mainCategories.first;
+      _selectedSub = CategoryData.categories[_selectedMain]!.first;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 400,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      child: Column(
+        children: [
+          const Text(
+            '选择分类',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Row(
+              children: [
+                // 左侧大类列表
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _mainCategories.length,
+                    itemBuilder: (context, index) {
+                      final main = _mainCategories[index];
+                      return ListTile(
+                        title: Text(main),
+                        selected: _selectedMain == main,
+                        selectedTileColor: Colors.teal.withOpacity(0.1),
+                        onTap: () {
+                          setState(() {
+                            _selectedMain = main;
+                            _selectedSub = CategoryData.categories[main]!.first;
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 右侧小类列表
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: CategoryData.categories[_selectedMain]!.length,
+                    itemBuilder: (context, index) {
+                      final sub = CategoryData.categories[_selectedMain]![index];
+                      return ListTile(
+                        title: Text(sub),
+                        selected: _selectedSub == sub,
+                        selectedTileColor: Colors.teal.withOpacity(0.1),
+                        onTap: () {
+                          setState(() {
+                            _selectedSub = sub;
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context, {
+                      'main': _selectedMain,
+                      'sub': _selectedSub,
+                    });
+                  },
+                  child: const Text('确定'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

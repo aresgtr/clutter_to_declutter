@@ -1,7 +1,6 @@
 import 'dart:io';
-
 import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';  // 新增导入
+import 'package:uuid/uuid.dart';
 
 class Item {
   final String id;
@@ -12,6 +11,7 @@ class Item {
   final bool archived;
   final String costMode;
   final int useCount;
+  final String category;
 
   Item({
     required this.id,
@@ -22,6 +22,7 @@ class Item {
     this.archived = false,
     this.costMode = 'day',
     this.useCount = 0,
+    this.category = '',
   });
 
   Map<String, dynamic> toMap() {
@@ -34,6 +35,7 @@ class Item {
       'archived': archived ? '1' : '0',
       'costMode': costMode,
       'useCount': useCount.toString(),
+      'category': category,
     };
   }
 
@@ -47,12 +49,13 @@ class Item {
       archived: map['archived'] == '1' || map['archived'] == 1 || map['archived'] == true,
       costMode: (map['costMode'] ?? 'day').toString(),
       useCount: int.tryParse((map['useCount'] ?? '0').toString()) ?? 0,
+      category: map['category'] ?? '',
     );
   }
 }
 
 class CsvHelper {
-  static const _header = 'id,emoji,name,price,buyDate,archived,costMode,useCount\n';
+  static const _header = 'id,emoji,name,price,buyDate,archived,costMode,useCount,category\n';
 
   static Future<String> _getCsvFilePath() async {
     final directory = await getApplicationDocumentsDirectory();
@@ -74,7 +77,7 @@ class CsvHelper {
     }
 
     final firstLine = lines.first.trim();
-    if (!firstLine.contains('archived') || !firstLine.contains('costMode') || !firstLine.contains('useCount')) {
+    if (!firstLine.contains('category')) {
       final migrated = <String>[];
       migrated.add(_header.trimRight());
 
@@ -84,19 +87,26 @@ class CsvHelper {
         final parts = line.split(',');
 
         if (parts.length == 5) {
-          migrated.add('$line,0,day,0');
+          migrated.add('$line,0,day,0,');
           continue;
         }
-
         if (parts.length == 6) {
-          migrated.add('$line,day,0');
+          migrated.add('$line,day,0,');
           continue;
         }
-
-        migrated.add(line);
+        if (parts.length == 8) {
+          migrated.add('$line,');
+          continue;
+        }
+        if (parts.length == 9) {
+          migrated.add(line);
+        } else {
+          migrated.add(line);
+        }
       }
 
       await file.writeAsString('${migrated.join('\n')}\n');
+      return;
     }
   }
 
@@ -106,7 +116,7 @@ class CsvHelper {
     final buffer = StringBuffer()..write(_header);
     for (final item in items) {
       buffer.writeln(
-        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount}',
+        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount},${_escapeComma(item.category)}',
       );
     }
     await file.writeAsString(buffer.toString());
@@ -138,6 +148,7 @@ class CsvHelper {
           archived: parts.length >= 6 ? (parts[5] == '1') : false,
           costMode: parts.length >= 7 ? parts[6] : 'day',
           useCount: parts.length >= 8 ? (int.tryParse(parts[7]) ?? 0) : 0,
+          category: parts.length >= 9 ? parts[8] : '',
         ),
       );
     }
@@ -149,7 +160,7 @@ class CsvHelper {
     final path = await _getCsvFilePath();
     final file = File(path);
     final csvRow =
-        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount}\n';
+        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount},${_escapeComma(item.category)}\n';
     await file.writeAsString(csvRow, mode: FileMode.append);
   }
 
@@ -167,6 +178,7 @@ class CsvHelper {
         archived: archived,
         costMode: item.costMode,
         useCount: item.useCount,
+        category: item.category,
       )
           : item,
     )
@@ -201,14 +213,15 @@ class CsvHelper {
     return text.replaceAll(',', '，');
   }
 
-  // ========== 新增导入导出方法 ==========
+  // ========== 导入导出方法 ==========
 
-  /// 解析CSV字符串为Item列表，严格校验
   static List<Item> parseCSV(String content) {
     final lines = content.split('\n');
     if (lines.isEmpty) throw Exception('文件为空');
+
+    // 检查表头（兼容有/无 category）
     final header = lines.first.trim();
-    if (header != 'id,emoji,name,price,buyDate,archived,costMode,useCount') {
+    if (!header.startsWith('id,emoji,name,price,buyDate,archived,costMode,useCount')) {
       throw Exception('CSV格式不正确，缺少表头或列名不符');
     }
 
@@ -217,6 +230,7 @@ class CsvHelper {
       final line = lines[i].trim();
       if (line.isEmpty) continue;
       final parts = line.split(',');
+      // 允许8列（无category）或9列（有category）
       if (parts.length < 8) {
         throw Exception('第 ${i+1} 行列数不足8');
       }
@@ -252,6 +266,8 @@ class CsvHelper {
         throw Exception('第 ${i+1} 行使用次数错误');
       }
 
+      final category = parts.length >= 9 ? parts[8] : '';
+
       items.add(Item(
         id: id,
         emoji: emoji,
@@ -261,29 +277,27 @@ class CsvHelper {
         archived: archived,
         costMode: costMode,
         useCount: useCount,
+        category: category,
       ));
     }
     return items;
   }
 
-  /// 将Item列表转换为CSV字符串
   static String itemsToCSV(List<Item> items) {
     final buffer = StringBuffer();
-    buffer.writeln('id,emoji,name,price,buyDate,archived,costMode,useCount');
+    buffer.writeln(_header.trimRight());
     for (final item in items) {
       buffer.writeln(
-        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount}',
+        '${item.id},${item.emoji},${_escapeComma(item.name)},${item.price},${item.buyDate},${item.archived ? '1' : '0'},${item.costMode},${item.useCount},${_escapeComma(item.category)}',
       );
     }
     return buffer.toString();
   }
 
-  /// 覆盖所有数据
   static Future<void> overwriteAllItems(List<Item> items) async {
     await _writeAllItems(items);
   }
 
-  /// 追加数据（若ID已存在，重新生成新ID）
   static Future<void> appendItems(List<Item> newItems) async {
     final existing = await readAllItems();
     final existingIds = existing.map((e) => e.id).toSet();
@@ -299,6 +313,7 @@ class CsvHelper {
           archived: item.archived,
           costMode: item.costMode,
           useCount: item.useCount,
+          category: item.category,
         );
       }
       return item;
