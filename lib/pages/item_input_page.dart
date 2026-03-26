@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart'; // 新增：用于滚轮选择器
+import 'package:flutter/cupertino.dart';
 import 'package:uuid/uuid.dart';
 import '../utils/csv_helper.dart';
 import '../utils/utils.dart';
@@ -41,7 +41,7 @@ class ItemInputPage extends StatefulWidget {
 class _ItemInputPageState extends State<ItemInputPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
-  late final TextEditingController _dateController; // 新增：日期文本框控制器
+  late final TextEditingController _dateController;
   DateTime? _buyDate;
   late String _selectedEmoji;
   late String _costMode; // day / count
@@ -68,7 +68,6 @@ class _ItemInputPageState extends State<ItemInputPage> {
     _useCount = existing?.useCount ?? 0;
     _category = existing?.category ?? '';
 
-    // 初始化日期文本框
     _dateController = TextEditingController(
       text: _buyDate != null ? formatDateShort(_buyDate) : '',
     );
@@ -82,7 +81,6 @@ class _ItemInputPageState extends State<ItemInputPage> {
     super.dispose();
   }
 
-  // 清除日期
   void _clearDate() {
     setState(() {
       _buyDate = null;
@@ -90,7 +88,6 @@ class _ItemInputPageState extends State<ItemInputPage> {
     });
   }
 
-  // 弹出日期选择器
   Future<void> _selectDate() async {
     final initialDate = _buyDate ?? DateTime.now();
     final picked = await showModalBottomSheet<DateTime>(
@@ -145,7 +142,6 @@ class _ItemInputPageState extends State<ItemInputPage> {
     }
   }
 
-  // 打开分类选择器
   Future<void> _selectCategory() async {
     final result = await showModalBottomSheet<Map<String, String>>(
       context: context,
@@ -169,11 +165,46 @@ class _ItemInputPageState extends State<ItemInputPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isEditMode ? '编辑商品' : '添加商品')),
+      appBar: AppBar(
+        title: const Text('添加'),
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // 顶部卡片
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: const Color(0xFFF5F3EE),
+                border: Border.all(color: const Color(0xFFE6E1D8)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const Text('📦', style: TextStyle(fontSize: 48)),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '添加新物品',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF2F3A34),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             // 1. Emoji选择器
             const Text('选择商品图标', style: TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
@@ -305,7 +336,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
               keyboardType: TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
-            // 6. 购买日期文本框（新样式）
+            // 6. 购买日期文本框
             TextField(
               controller: _dateController,
               readOnly: true,
@@ -324,12 +355,14 @@ class _ItemInputPageState extends State<ItemInputPage> {
               onTap: _selectDate,
             ),
             const SizedBox(height: 24),
-            // 7. 保存按钮
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saveItem,
-                child: Text(_isEditMode ? '保存修改' : '保存物品'),
+            // 7. 保存按钮（固定宽度，居中）
+            Center(
+              child: SizedBox(
+                width: 200,
+                child: ElevatedButton(
+                  onPressed: _saveItem,
+                  child: Text(_isEditMode ? '保存修改' : '保存物品'),
+                ),
               ),
             ),
           ],
