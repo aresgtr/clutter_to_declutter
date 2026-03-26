@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'; // 新增：用于滚轮选择器
 import 'package:uuid/uuid.dart';
 import '../utils/csv_helper.dart';
-import '../utils/utils.dart'; // 新增
+import '../utils/utils.dart';
 
 // 预设常用emoji
 const List<String> commonEmojis = [
@@ -40,6 +41,7 @@ class ItemInputPage extends StatefulWidget {
 class _ItemInputPageState extends State<ItemInputPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
+  late final TextEditingController _dateController; // 新增：日期文本框控制器
   DateTime? _buyDate;
   late String _selectedEmoji;
   late String _costMode; // day / count
@@ -65,13 +67,82 @@ class _ItemInputPageState extends State<ItemInputPage> {
     _costMode = (existing?.costMode == 'count') ? 'count' : 'day';
     _useCount = existing?.useCount ?? 0;
     _category = existing?.category ?? '';
+
+    // 初始化日期文本框
+    _dateController = TextEditingController(
+      text: _buyDate != null ? formatDateShort(_buyDate) : '',
+    );
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
+    _dateController.dispose();
     super.dispose();
+  }
+
+  // 清除日期
+  void _clearDate() {
+    setState(() {
+      _buyDate = null;
+      _dateController.clear();
+    });
+  }
+
+  // 弹出日期选择器
+  Future<void> _selectDate() async {
+    final initialDate = _buyDate ?? DateTime.now();
+    final picked = await showModalBottomSheet<DateTime>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        DateTime tempDate = initialDate;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Container(
+              height: 300,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.date,
+                      initialDateTime: tempDate,
+                      onDateTimeChanged: (date) {
+                        tempDate = date;
+                      },
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('取消'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, tempDate),
+                        child: const Text('确定'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (picked != null && mounted) {
+      setState(() {
+        _buyDate = picked;
+        _dateController.text = formatDateShort(picked);
+      });
+    }
   }
 
   // 打开分类选择器
@@ -234,24 +305,23 @@ class _ItemInputPageState extends State<ItemInputPage> {
               keyboardType: TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
-            // 6. 购买日期选择按钮
-            ElevatedButton(
-              onPressed: () async {
-                final pickedDate = await showDatePicker(
-                  context: context,
-                  initialDate: _buyDate ?? DateTime.now(),
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime.now(),
-                );
-                if (pickedDate != null) {
-                  setState(() {
-                    _buyDate = pickedDate;
-                  });
-                }
-              },
-              child: Text(_buyDate == null
-                  ? '选择购买日期（可选）'
-                  : '购买日期：${_buyDate!.year}-${_buyDate!.month}-${_buyDate!.day}'),
+            // 6. 购买日期文本框（新样式）
+            TextField(
+              controller: _dateController,
+              readOnly: true,
+              decoration: InputDecoration(
+                labelText: '购买日期',
+                hintText: '选择购买日期（可选）',
+                border: const OutlineInputBorder(),
+                suffixIcon: _buyDate != null
+                    ? IconButton(
+                  icon: const Icon(Icons.cancel, color: Colors.red),
+                  onPressed: _clearDate,
+                  tooltip: '清除日期',
+                )
+                    : null,
+              ),
+              onTap: _selectDate,
             ),
             const SizedBox(height: 24),
             // 7. 保存按钮
