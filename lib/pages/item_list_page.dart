@@ -4,7 +4,7 @@ import 'item_input_page.dart';
 import 'archived_list_page.dart';
 import '../widgets/expandable_item_card.dart';
 import '../widgets/settings_drawer.dart';
-import '../utils/utils.dart'; // 新增
+import '../utils/utils.dart';
 
 enum SortOption {
   nameAsc,
@@ -519,7 +519,7 @@ class _ItemListPageState extends State<ItemListPage> {
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2), // 进一步缩小垂直内边距
           margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
             border: Border(
@@ -534,7 +534,7 @@ class _ItemListPageState extends State<ItemListPage> {
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 SizedBox(
-                  width: 180,
+                  width: 160, // 略微缩小宽度
                   child: TextField(
                     controller: _searchController,
                     focusNode: _searchFocusNode,
@@ -546,7 +546,7 @@ class _ItemListPageState extends State<ItemListPage> {
                       ),
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // 进一步减小
                       isDense: true,
                       prefixIcon: const Icon(Icons.search, size: 18),
                     ),
@@ -554,11 +554,11 @@ class _ItemListPageState extends State<ItemListPage> {
                     onSubmitted: (_) => _applyFiltersAndSort(),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4), // 减小间距
                 OutlinedButton(
                   onPressed: _showSortMenu,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // 进一步减小
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -571,11 +571,11 @@ class _ItemListPageState extends State<ItemListPage> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
                 OutlinedButton(
                   onPressed: _showCategoryMenu,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -588,11 +588,11 @@ class _ItemListPageState extends State<ItemListPage> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
                 OutlinedButton(
                   onPressed: _showPriceRangeDialog,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
