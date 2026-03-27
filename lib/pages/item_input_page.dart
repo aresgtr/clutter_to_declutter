@@ -205,33 +205,14 @@ class _ItemInputPageState extends State<ItemInputPage> {
                 ],
               ),
             ),
-            // 1. Emoji选择器
-            const Text('选择商品图标', style: TextStyle(fontSize: 16)),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 60,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: commonEmojis.length,
-                itemBuilder: (context, index) {
-                  final emoji = commonEmojis[index];
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedEmoji = emoji;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _selectedEmoji == emoji ? Colors.teal[100] : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(emoji, style: const TextStyle(fontSize: 24)),
-                    ),
-                  );
-                },
+
+            // 1. 商品名称输入框
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: '物品名称',
+                hintText: '比如：纯棉T恤、无线耳机',
+                border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -262,26 +243,119 @@ class _ItemInputPageState extends State<ItemInputPage> {
             ),
             const SizedBox(height: 16),
 
-            // 3. 成本计算方式
+            // 3. Emoji选择器
+            const Text('选择商品图标', style: TextStyle(fontSize: 16)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 60,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: commonEmojis.length,
+                itemBuilder: (context, index) {
+                  final emoji = commonEmojis[index];
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedEmoji = emoji;
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _selectedEmoji == emoji ? Colors.teal[100] : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 4. 购买价格输入框
+            TextField(
+              controller: _priceController,
+              decoration: const InputDecoration(
+                labelText: '购买价格（元）',
+                hintText: '比如99、299（可选）',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 16),
+
+            // 5. 购买日期文本框
+            TextField(
+              controller: _dateController,
+              readOnly: true,
+              decoration: InputDecoration(
+                labelText: '购买日期',
+                hintText: '选择购买日期（可选）',
+                border: const OutlineInputBorder(),
+                suffixIcon: _buyDate != null
+                    ? IconButton(
+                  icon: const Icon(Icons.cancel, color: Colors.red),
+                  onPressed: _clearDate,
+                  tooltip: '清除日期',
+                )
+                    : null,
+              ),
+              onTap: _selectDate,
+            ),
+            const SizedBox(height: 16),
+
+            // 6. 成本计算方式（使用一体药丸 SegmentedButton，内部文字可缩放）
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Expanded(
-                  child: Text('成本计算方式', style: TextStyle(fontSize: 16)),
+                // 左侧文字，允许缩小
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: const Text(
+                      '成本计算方式',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
                 ),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'day', label: Text('按日期')),
-                    ButtonSegment(value: 'count', label: Text('按次数')),
-                  ],
-                  selected: {_costMode},
-                  onSelectionChanged: (value) {
-                    setState(() {
-                      _costMode = value.first;
-                      if (_costMode == 'count' && _useCount < 0) {
-                        _useCount = 0;
-                      }
-                    });
-                  },
+                const SizedBox(width: 12),
+                // 右侧 SegmentedButton，占据剩余空间，内部文字缩放
+                Flexible(
+                  child: SegmentedButton<String>(
+                    style: ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      padding: WidgetStateProperty.all(EdgeInsets.zero),
+                    ),
+                    segments: [
+                      ButtonSegment(
+                        value: 'day',
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: const Text('按日期'),
+                        ),
+                      ),
+                      ButtonSegment(
+                        value: 'count',
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: const Text('按次数'),
+                        ),
+                      ),
+                    ],
+                    selected: {_costMode},
+                    onSelectionChanged: (value) {
+                      setState(() {
+                        _costMode = value.first;
+                        if (_costMode == 'count' && _useCount < 0) {
+                          _useCount = 0;
+                        }
+                      });
+                    },
+                  ),
                 ),
               ],
             ),
@@ -315,46 +389,8 @@ class _ItemInputPageState extends State<ItemInputPage> {
                 ],
               ),
             ],
-            // 4. 商品名称输入框
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: '物品名称',
-                hintText: '比如：纯棉T恤、无线耳机',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // 5. 购买价格输入框
-            TextField(
-              controller: _priceController,
-              decoration: const InputDecoration(
-                labelText: '购买价格（元）',
-                hintText: '比如99、299（可选）',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: 16),
-            // 6. 购买日期文本框
-            TextField(
-              controller: _dateController,
-              readOnly: true,
-              decoration: InputDecoration(
-                labelText: '购买日期',
-                hintText: '选择购买日期（可选）',
-                border: const OutlineInputBorder(),
-                suffixIcon: _buyDate != null
-                    ? IconButton(
-                  icon: const Icon(Icons.cancel, color: Colors.red),
-                  onPressed: _clearDate,
-                  tooltip: '清除日期',
-                )
-                    : null,
-              ),
-              onTap: _selectDate,
-            ),
             const SizedBox(height: 24),
+
             // 7. 保存按钮（固定宽度，居中）
             Center(
               child: SizedBox(
