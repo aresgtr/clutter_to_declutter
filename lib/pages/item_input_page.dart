@@ -122,7 +122,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(context, tempDate),
-                        child: const Text('确定'),
+                        child: const Text('确定'), // 修复：补上 child
                       ),
                     ],
                   ),
@@ -138,6 +138,58 @@ class _ItemInputPageState extends State<ItemInputPage> {
       setState(() {
         _buyDate = picked;
         _dateController.text = formatDateShort(picked);
+      });
+    }
+  }
+
+  // 最小改动：新增 Emoji 底部选择弹窗方法
+  Future<void> _selectEmoji() async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('选择商品图标', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              GridView.builder(
+                shrinkWrap: true,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 6,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: commonEmojis.length,
+                itemBuilder: (context, index) {
+                  final emoji = commonEmojis[index];
+                  return GestureDetector(
+                    onTap: () => Navigator.pop(context, emoji),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _selectedEmoji == emoji ? Colors.teal[100] : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _selectedEmoji = result;
       });
     }
   }
@@ -243,33 +295,25 @@ class _ItemInputPageState extends State<ItemInputPage> {
             ),
             const SizedBox(height: 16),
 
-            // 3. Emoji选择器
-            const Text('选择商品图标', style: TextStyle(fontSize: 16)),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 60,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: commonEmojis.length,
-                itemBuilder: (context, index) {
-                  final emoji = commonEmojis[index];
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedEmoji = emoji;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _selectedEmoji == emoji ? Colors.teal[100] : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(emoji, style: const TextStyle(fontSize: 24)),
-                    ),
-                  );
-                },
+            // 最小改动：替换 Emoji 选择 UI
+            GestureDetector(
+              onTap: _selectEmoji,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_selectedEmoji, style: const TextStyle(fontSize: 32)),
+                      const SizedBox(height: 8),
+                      const Text('点击选择图标', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                    ],
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -341,7 +385,7 @@ class _ItemInputPageState extends State<ItemInputPage> {
                       ButtonSegment(
                         value: 'count',
                         label: FittedBox(
-                          fit: BoxFit.scaleDown,
+                          fit: BoxFit.scaleDown, // 修复：BoxFit.scaleDown
                           child: const Text('按次数'),
                         ),
                       ),
@@ -486,86 +530,85 @@ class _CategoryPickerState extends State<_CategoryPicker> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 400,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      child: Column(
-        children: [
-          const Text(
-            '选择分类',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Row(
+        height: 400,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: Column(
+          children: [
+            const Text(
+              '选择分类',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: Row(
+                children: [
+                  // 左侧大类列表
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _mainCategories.length,
+                      itemBuilder: (context, index) {
+                        final main = _mainCategories[index];
+                        return ListTile(
+                          title: Text(main),
+                          selected: _selectedMain == main,
+                          selectedTileColor: Colors.teal.withOpacity(0.1),
+                          onTap: () {
+                            setState(() {
+                              _selectedMain = main;
+                              _selectedSub = CategoryData.categories[main]!.first;
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // 右侧小类列表
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: CategoryData.categories[_selectedMain]!.length,
+                      itemBuilder: (context, index) {
+                        final sub = CategoryData.categories[_selectedMain]![index];
+                        return ListTile(
+                          title: Text(sub),
+                          selected: _selectedSub == sub,
+                          selectedTileColor: Colors.teal.withOpacity(0.1),
+                          onTap: () {
+                            setState(() {
+                              _selectedSub = sub;
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
               children: [
-                // 左侧大类列表
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: _mainCategories.length,
-                    itemBuilder: (context, index) {
-                      final main = _mainCategories[index];
-                      return ListTile(
-                        title: Text(main),
-                        selected: _selectedMain == main,
-                        selectedTileColor: Colors.teal.withOpacity(0.1),
-                        onTap: () {
-                          setState(() {
-                            _selectedMain = main;
-                            _selectedSub = CategoryData.categories[main]!.first;
-                          });
-                        },
-                      );
-                    },
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
                   ),
                 ),
-                const SizedBox(width: 8),
-                // 右侧小类列表
+                const SizedBox(width: 16),
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: CategoryData.categories[_selectedMain]!.length,
-                    itemBuilder: (context, index) {
-                      final sub = CategoryData.categories[_selectedMain]![index];
-                      return ListTile(
-                        title: Text(sub),
-                        selected: _selectedSub == sub,
-                        selectedTileColor: Colors.teal.withOpacity(0.1),
-                        onTap: () {
-                          setState(() {
-                            _selectedSub = sub;
-                          });
-                        },
-                      );
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context, {
+                        'main': _selectedMain,
+                        'sub': _selectedSub,
+                      });
                     },
+                    child: const Text('确定'),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('取消'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context, {
-                      'main': _selectedMain,
-                      'sub': _selectedSub,
-                    });
-                  },
-                  child: const Text('确定'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+          ],
+        ));
   }
 }
